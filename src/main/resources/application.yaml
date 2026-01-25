@@ -2,7 +2,7 @@ spring:
   application:
     name: server
   datasource:
-    url: jdbc:postgresql://localhost:5432/${DB_NAME}
+    url: jdbc:postgresql://localhost:5432/archiveat_db
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -19,3 +19,9 @@ jwt:
   access-token-expiration-ms: 3600000  # 1시간
   issuer: "archiveat"
 
+springdoc:
+  # 1. 화면(UI) 접속 주소 변경
+  swagger-ui:
+    path: /archiveat-docs  #localhost:8080/archiveat-docs로 접속
+
+    doc-expansion: none    # none: 다 접힘(깔끔), list: 다 펼침(기본값)
