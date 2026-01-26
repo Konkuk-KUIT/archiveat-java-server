@@ -1,7 +1,7 @@
 package com.archiveat.server.domain.user.service;
 
 import com.archiveat.server.domain.user.dto.response.LoginResponse;
-import com.archiveat.server.domain.user.model.User;
+import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.response.ApiResponse;
 import com.archiveat.server.global.common.response.SuccessCode;

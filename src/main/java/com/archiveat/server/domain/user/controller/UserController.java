@@ -5,7 +5,7 @@ import com.archiveat.server.domain.user.dto.request.EmailCheckRequest;
 import com.archiveat.server.domain.user.dto.request.LoginRequest;
 import com.archiveat.server.domain.user.dto.request.SignupRequest;
 import com.archiveat.server.domain.user.dto.response.LoginResponse;
-import com.archiveat.server.domain.user.model.User;
+import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.service.UserService;
 import com.archiveat.server.global.common.BaseEntity;
 import com.archiveat.server.global.common.response.ApiResponse;
