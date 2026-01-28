@@ -58,4 +58,15 @@ public class UserService {
         return new LoginResponse(accessToken, GRANT_TYPE);
     }
 
+    /**
+     * 닉네임 수정
+     */
+    @Transactional
+    public void editNickname(Long userId, String newNickname) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found. id=" + userId));
+
+        user.updateNickname(newNickname);
+    }
+
 }

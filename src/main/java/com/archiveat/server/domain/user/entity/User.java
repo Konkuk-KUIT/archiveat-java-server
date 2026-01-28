@@ -34,6 +34,12 @@ public class User extends BaseEntity {
     }
 
     public User(String email, String encoded, String nickname) {
-        super();
+        this.email = email;
+        this.password = encoded;
+        this.nickname = nickname;
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }
