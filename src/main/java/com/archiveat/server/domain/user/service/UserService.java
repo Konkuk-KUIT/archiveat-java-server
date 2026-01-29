@@ -3,16 +3,12 @@ package com.archiveat.server.domain.user.service;
 import com.archiveat.server.domain.user.dto.response.LoginResponse;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
-import com.archiveat.server.global.common.response.ApiResponse;
-import com.archiveat.server.global.common.response.SuccessCode;
 import com.archiveat.server.global.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.security.auth.login.AccountNotFoundException;
-import java.util.Optional;
 
 //final 이거나 @NonNull 이 붙은 필드만 파라미터로 받는 생성자를 자동 생성
 @RequiredArgsConstructor
@@ -57,16 +53,6 @@ public class UserService {
 
         return new LoginResponse(accessToken, GRANT_TYPE);
     }
-
-    /**
-     * 닉네임 수정
-     */
-    @Transactional
-    public void editNickname(Long userId, String newNickname) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found. id=" + userId));
-
-        user.updateNickname(newNickname);
-    }
+    
 
 }

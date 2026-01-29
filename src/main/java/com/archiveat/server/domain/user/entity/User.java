@@ -1,6 +1,8 @@
 package com.archiveat.server.domain.user.entity;
 
+import com.archiveat.server.domain.user.dto.request.OnboardingInfoRequest;
 import com.archiveat.server.global.common.BaseEntity;
+import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.EmploymentType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,6 +25,15 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private EmploymentType employmentType;
 
+    @Enumerated(EnumType.STRING)
+    private DepthType prefMorning;
+    @Enumerated(EnumType.STRING)
+    private DepthType prefLunch;
+    @Enumerated(EnumType.STRING)
+    private DepthType prefEvening;
+    @Enumerated(EnumType.STRING)
+    private DepthType prefBedtime;
+
     private Integer commuteDurationMin;
     private LocalDateTime lastLoginAt;
 
@@ -41,5 +52,14 @@ public class User extends BaseEntity {
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void updateOnboardingInfo(EmploymentType employmentType,
+                                     OnboardingInfoRequest.AvailabilityRequest availability) {
+        this.employmentType = employmentType;
+        this.prefMorning = availability.pref_morning();
+        this.prefLunch = availability.pref_lunch();
+        this.prefEvening = availability.pref_evening();
+        this.prefBedtime = availability.pref_bedtime();
     }
 }
