@@ -23,7 +23,7 @@ public class Newsletter extends BaseEntity {
     @Column(length = 2000)
     private String thumbnailUrl;
 
-    @Column(length = 2000)
+    @Column(length = 2000, nullable = false, unique = true)
     private String contentUrl;
 
     // 요약 정보들
@@ -39,4 +39,24 @@ public class Newsletter extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     private LlmStatus llmStatus; // PENDING, RUNNING, DONE, FAILED
+
+    public Newsletter(Domain domain, String contentUrl){
+        this.domain = domain;
+        this.title = null;
+        this.thumbnailUrl = null;
+        this.contentUrl = contentUrl;
+        this.smallCardSummary = null;
+        this.mediumCardSummary = null;
+        this.newsletterSummary = null;
+        this.consumptionTimeMin = null;
+        this.llmStatus = LlmStatus.PENDING;
+    }
+
+    public static Newsletter createPending(Domain domain, String contentUrl){
+        return new Newsletter(domain, contentUrl);
+    }
+
+    public void UpdateLlmStatus(LlmStatus llmStatus){
+        this.llmStatus = llmStatus;
+    }
 }

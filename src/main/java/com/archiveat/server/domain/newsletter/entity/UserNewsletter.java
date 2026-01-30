@@ -36,8 +36,26 @@ public class UserNewsletter extends BaseEntity {
 
     private boolean isRead;
     private boolean isConfirmed;
-
     private LocalDateTime lastViewedAt;
+
+    public UserNewsletter(User user, Newsletter newsletter, String memo) {
+        this.user = user;
+        this.newsletter = newsletter;
+        this.memo = memo;
+        this.perspectiveType = null;
+        this.depthType = null;
+        this.isRead = false;
+        this.isConfirmed = false;
+    }
+
+    public static UserNewsletter create(User user, Newsletter newsletter, String memo){
+        return new UserNewsletter(user, newsletter, memo);
+    }
+
+    public void updateIsRead() {
+        this.isRead = true;
+        updateLastViewedAt();
+    }
 
     public void updateLastViewedAt() {
         this.lastViewedAt = LocalDateTime.now();
