@@ -33,7 +33,7 @@ public class NewsletterService {
 
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
-        int deleted = userNewsletterRepository.deleteByIdAndUserId(userNewsletterId, userId);
+        int deleted = userNewsletterRepository.deleteByIdAndUser_Id(userNewsletterId, userId);
         if(deleted == 0) {
             // TODO throw new NewsletterNotFoundException
         }

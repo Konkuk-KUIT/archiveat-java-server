@@ -8,8 +8,7 @@ import java.util.Optional;
 
 @Repository
 public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, Long> {
-    int deleteByIdAndUserId(Long id, Long userId);
-  
+    int deleteByIdAndUser_Id(Long id, Long userId);
     Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
     Optional<UserNewsletter> findByUserIdAndNewsletterId(Long userId, Long newsletterId);
     List<UserNewsletter> findByUserIdAndNewsletterIdIn(Long userId, List<Long> newsletterIds);
