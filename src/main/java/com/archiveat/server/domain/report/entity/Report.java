@@ -22,7 +22,6 @@ public class Report extends BaseEntity {
     private Integer totalNewsletterCount;
     private Integer consumedNewsletterCount;
 
-    // Decimal은 Java에서 BigDecimal 사용
     private BigDecimal lightConsumedBalance;
     private BigDecimal deepConsumedBalance;
     private BigDecimal nowConsumedBalance;

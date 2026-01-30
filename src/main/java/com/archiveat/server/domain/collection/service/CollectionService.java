@@ -40,7 +40,7 @@ public class CollectionService {
 
         // 3. 컬렉션에 속한 뉴스레터들 조회
         List<CollectionNewsletter> collectionNewsletters = collectionNewsletterRepository
-                .findByCollectionId(collectionId);
+                .findAllByCollectionId(collectionId);
 
         // 4. Newsletter ID 목록 추출
         List<Long> newsletterIds = collectionNewsletters.stream()
