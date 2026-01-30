@@ -20,6 +20,10 @@ public record ApiResponse<T>(
         return new ApiResponse<>(true, SuccessCode.SUCCESS.getCode(), SuccessCode.SUCCESS.getMessage(), data, LocalDateTime.now());
     }
 
+    public static <T> ApiResponse<T> ok(){
+        return new ApiResponse<>(true, SuccessCode.SUCCESS.getCode(), SuccessCode.SUCCESS.getMessage(), null, LocalDateTime.now());
+    }
+
     public static <T> ApiResponse<T> fail(ErrorCode errorCode) {
         return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null, LocalDateTime.now());
     }
