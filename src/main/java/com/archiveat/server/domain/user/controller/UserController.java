@@ -7,9 +7,12 @@ import com.archiveat.server.domain.user.dto.response.LoginResponse;
 import com.archiveat.server.domain.user.service.UserService;
 import com.archiveat.server.global.common.response.ApiResponse;
 import com.archiveat.server.global.common.response.SuccessCode;
+import com.archiveat.server.global.jwt.RefreshTokenCookieProvider;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,19 +23,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class UserController {
     private final UserService userService;
+    private final RefreshTokenCookieProvider refreshTokenCookieProvider;
 
     @PostMapping("/signup")
     public ApiResponse<LoginResponse> signup(
-            @Valid @RequestBody SignupRequest signupRequest
+            @Valid @RequestBody SignupRequest signupRequest,
+            HttpServletResponse response
     ){
-        //db에 저장
-        LoginResponse loginResponse = userService.signupAndLogin(
-          signupRequest.getEmail(),
-          signupRequest.getPassword(),
-          signupRequest.getNickname()
+        UserService.IssuedTokens tokens = userService.signupAndLogin(
+                signupRequest.getEmail(),
+                signupRequest.getPassword(),
+                signupRequest.getNickname()
         );
 
-        return ApiResponse.ok(SuccessCode.USER_CREATED, loginResponse);
+        // refresh는 쿠키로
+        refreshTokenCookieProvider.set(response, tokens.refreshToken());
+
+        // access는 바디로
+        return ApiResponse.ok(
+                SuccessCode.USER_CREATED,
+                new LoginResponse(tokens.accessToken(), "Bearer")
+        );
+//
+//        LoginResponse loginResponse = userService.signupAndLogin(
+//          signupRequest.getEmail(),
+//          signupRequest.getPassword(),
+//          signupRequest.getNickname()
+//        );
+//
+//        return ApiResponse.ok(SuccessCode.USER_CREATED, loginResponse);
     }
 
     @PostMapping("/check-email")
@@ -48,13 +67,53 @@ public class UserController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(
             @Valid @RequestBody LoginRequest loginRequest,
-            HttpServletRequest httpRequest
+            HttpServletResponse response
     ){
-        LoginResponse loginResponse = userService.login(
+        UserService.IssuedTokens tokens = userService.login(
                 loginRequest.getEmail(),
                 loginRequest.getPassword()
         );
 
-        return ApiResponse.ok(SuccessCode.SUCCESS, loginResponse);
+        refreshTokenCookieProvider.set(response, tokens.refreshToken());
+
+        return ApiResponse.ok(
+                SuccessCode.SUCCESS,
+                new LoginResponse(tokens.accessToken(), "Bearer")
+        );
+//        LoginResponse loginResponse = userService.login(
+//                loginRequest.getEmail(),
+//                loginRequest.getPassword()
+//        );
+//
+//        return ApiResponse.ok(SuccessCode.SUCCESS, loginResponse);
+    }
+
+    // refresh로 access 재발급
+    @PostMapping("/reissue")
+    public ApiResponse<LoginResponse> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        String refreshToken = refreshTokenCookieProvider.extract(request);
+        UserService.IssuedTokens tokens = userService.reissueTokensByRefresh(refreshToken);
+
+        // rotation 적용했으니 쿠키 갱신
+        refreshTokenCookieProvider.set(response, tokens.refreshToken());
+
+        return ApiResponse.ok(
+                SuccessCode.SUCCESS,
+                new LoginResponse(tokens.accessToken(), "Bearer")
+        );
+    }
+
+    // 로그아웃: user.refreshToken null + 쿠키 제거
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @AuthenticationPrincipal Long userId,
+            HttpServletResponse response
+    ) {
+        userService.logout(userId);
+        refreshTokenCookieProvider.clear(response);
+        return ApiResponse.ok();
     }
 }

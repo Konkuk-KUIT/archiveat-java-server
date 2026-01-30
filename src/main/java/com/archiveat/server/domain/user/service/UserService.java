@@ -22,7 +22,7 @@ public class UserService {
     private static final String GRANT_TYPE = "Bearer";
 
     @Transactional
-    public LoginResponse login(String email, String rawPassword) {
+    public IssuedTokens login(String email, String rawPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
@@ -31,7 +31,14 @@ public class UserService {
         }
 
         String accessToken = jwtUtil.generateAccessToken(user.getId());
-        return new LoginResponse(accessToken, GRANT_TYPE);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+
+        user.updateRefreshToken(refreshToken);
+
+        //TODO 저장하는 거 맞는지 물어보기
+        userRepository.save(user);
+
+        return new IssuedTokens(accessToken, refreshToken);
     }
 
     @Transactional
@@ -40,7 +47,7 @@ public class UserService {
     }
 
     @Transactional
-    public LoginResponse signupAndLogin(String email, String password, String nickname) {
+    public IssuedTokens signupAndLogin(String email, String password, String nickname) {
 
         if (userRepository.existsByEmail(email)) {
             throw new IllegalStateException("Email already exists");
@@ -50,9 +57,50 @@ public class UserService {
         User savedUser = userRepository.save(new User(email, encoded, nickname));
 
         String accessToken = jwtUtil.generateAccessToken(savedUser.getId());
+        String refreshToken = jwtUtil.generateRefreshToken(savedUser.getId());
 
-        return new LoginResponse(accessToken, GRANT_TYPE);
+        savedUser.updateRefreshToken(refreshToken);
+        userRepository.save(savedUser);
+
+        return new IssuedTokens(accessToken, refreshToken);
     }
-    
+
+    @Transactional
+    public IssuedTokens reissueTokensByRefresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalStateException("Refresh token missing");
+        }
+
+        jwtUtil.validate(refreshToken);
+        Long userId = jwtUtil.getUserId(refreshToken);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        // DB에 저장된 refresh와 일치해야 함
+        if (!user.matchesRefreshToken(refreshToken)) {
+            throw new IllegalStateException("Refresh token invalid");
+        }
+
+        String newAccessToken = jwtUtil.generateAccessToken(userId);
+
+        // Rotation: refresh도 새로 발급해서 교체 (보안↑)
+        String newRefreshToken = jwtUtil.generateRefreshToken(userId);
+        user.updateRefreshToken(newRefreshToken);
+        userRepository.save(user);
+
+        return new IssuedTokens(newAccessToken, newRefreshToken);
+    }
+
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+        user.clearRefreshToken();
+        userRepository.save(user);
+    }
+
+    // 서비스 내부용 토큰 페어
+    public record IssuedTokens(String accessToken, String refreshToken) {}
 
 }
