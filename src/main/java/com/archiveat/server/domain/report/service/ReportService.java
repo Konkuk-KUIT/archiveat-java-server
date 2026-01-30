@@ -38,8 +38,10 @@ public class ReportService {
         LocalDateTime weekEnd = weekRange[1];
 
         // 1. 저장/읽음 개수 집계 (여기서 한 번만 조회)
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart, weekEnd);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart,
+                weekEnd);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository
+                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
 
         int totalSavedCount = savedThisWeek.size();
         int totalReadCount = readThisWeek.size();
@@ -74,8 +76,10 @@ public class ReportService {
     @Transactional(readOnly = true)
     public ConsumptionResponse getConsumption(Long userId) {
         LocalDateTime[] weekRange = getCurrentWeekRange();
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekRange[0], weekRange[1]);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId,
+                weekRange[0], weekRange[1]);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository
+                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
 
         // 1. 최근 읽은 뉴스레터 목록 (Repository 메서드명 변경 가정: findTop10...)
         // 만약 Repository 이름을 안 바꿨다면 기존 메서드를 쓰되, 아래 로직은 동일하게 적용
@@ -155,8 +159,10 @@ public class ReportService {
         LocalDateTime[] weekRange = getCurrentWeekRange();
 
         // 수정: calculateInterestGaps가 리스트를 받도록 변경되었으므로 여기서 조회 후 전달
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekRange[0], weekRange[1]);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId,
+                weekRange[0], weekRange[1]);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository
+                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
 
         List<WeeklyReportResponse.InterestGap> gaps = calculateInterestGaps(savedThisWeek, readThisWeek);
 
@@ -198,10 +204,14 @@ public class ReportService {
         int lightCount = 0, deepCount = 0, nowCount = 0, futureCount = 0;
 
         for (UserNewsletter un : newsletters) {
-            if (un.getDepthType() == DepthType.LIGHT) lightCount++;
-            if (un.getDepthType() == DepthType.DEEP) deepCount++;
-            if (un.getPerspectiveType() == PerspectiveType.NOW) nowCount++;
-            if (un.getPerspectiveType() == PerspectiveType.FUTURE) futureCount++;
+            if (un.getDepthType() == DepthType.LIGHT)
+                lightCount++;
+            if (un.getDepthType() == DepthType.DEEP)
+                deepCount++;
+            if (un.getPerspectiveType() == PerspectiveType.NOW)
+                nowCount++;
+            if (un.getPerspectiveType() == PerspectiveType.FUTURE)
+                futureCount++;
         }
 
         Map<String, Integer> balance = new HashMap<>();
@@ -248,7 +258,8 @@ public class ReportService {
         Map<String, Integer> topicReadCount = new HashMap<>();
 
         for (TopicNewsletter tn : topicNewsletters) {
-            if (tn.getTopic() == null) continue;
+            if (tn.getTopic() == null)
+                continue;
 
             Category category = tn.getTopic().getCategory();
             String topicName = (category != null) ? category.getName() : tn.getTopic().getName();
