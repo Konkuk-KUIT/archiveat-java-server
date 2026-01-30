@@ -1,13 +1,10 @@
 package com.archiveat.server.domain.user.controller;
 
-
 import com.archiveat.server.domain.user.dto.request.EmailCheckRequest;
 import com.archiveat.server.domain.user.dto.request.LoginRequest;
 import com.archiveat.server.domain.user.dto.request.SignupRequest;
 import com.archiveat.server.domain.user.dto.response.LoginResponse;
-import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.service.UserService;
-import com.archiveat.server.global.common.BaseEntity;
 import com.archiveat.server.global.common.response.ApiResponse;
 import com.archiveat.server.global.common.response.SuccessCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,8 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @RestController

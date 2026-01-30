@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, Long> {
-    Optional<UserNewsletter> findByUserIdAndNewsletterId(Long userId, Long newsletterId);
-
     List<UserNewsletter> findByUserIdAndNewsletterIdIn(Long userId, List<Long> newsletterIds);
+
+    List<UserNewsletter> findAllByUserId(Long userId);
 }
