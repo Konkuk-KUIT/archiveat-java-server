@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
 @RequiredArgsConstructor
 @Service
 public class OnboardingService {
@@ -85,8 +84,6 @@ public class OnboardingService {
                 categoryMetadata
         );
     }
-
-    // OnboardingService.java의 해당 메서드를 수정합니다.
 
     @Transactional
     public void submitOnboardingInfo(Long userId, OnboardingInfoRequest request) {
