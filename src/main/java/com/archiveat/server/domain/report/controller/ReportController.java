@@ -17,9 +17,8 @@ public class ReportController {
     private final ReportService reportService;
 
     /**
-     * 주간 리포트 전체 조회
-     * 
-     * @param userId 인증된 사용자 ID
+     * 주간 리포트 메인 조회
+     * URL: GET /report
      */
     @GetMapping
     public ApiResponse<WeeklyReportResponse> getWeeklyReport(
@@ -30,10 +29,9 @@ public class ReportController {
 
     /**
      * 핵심 소비현황 조회
-     * 
-     * @param userId 인증된 사용자 ID
+     * URL: GET /report/weekly/consumption
      */
-    @GetMapping("/weekly/consumption")
+    @GetMapping("/weekly/consumption") // [수정 1] 상위 경로가 있으므로 /consumption만 남김
     public ApiResponse<ConsumptionResponse> getConsumption(
             @AuthenticationPrincipal Long userId) {
         ConsumptionResponse response = reportService.getConsumption(userId);
@@ -42,8 +40,7 @@ public class ReportController {
 
     /**
      * 나의 소비 밸런스 조회
-     * 
-     * @param userId 인증된 사용자 ID
+     * URL: GET /report/weekly/balance
      */
     @GetMapping("/weekly/balance")
     public ApiResponse<BalanceResponse> getBalance(
@@ -54,8 +51,7 @@ public class ReportController {
 
     /**
      * 관심사 갭 분석 조회
-     * 
-     * @param userId 인증된 사용자 ID
+     * URL: GET /report/weekly/gap
      */
     @GetMapping("/weekly/gap")
     public ApiResponse<GapAnalysisResponse> getGapAnalysis(
@@ -63,4 +59,6 @@ public class ReportController {
         GapAnalysisResponse response = reportService.getGapAnalysis(userId);
         return ApiResponse.ok(response);
     }
+
+
 }

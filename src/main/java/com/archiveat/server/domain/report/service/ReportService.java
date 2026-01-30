@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime; // 추가됨
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,11 +37,9 @@ public class ReportService {
         LocalDateTime weekStart = weekRange[0];
         LocalDateTime weekEnd = weekRange[1];
 
-        // 1. 저장/읽음 개수 집계
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart,
-                weekEnd);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository
-                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
+        // 1. 저장/읽음 개수 집계 (여기서 한 번만 조회)
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart, weekEnd);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
 
         int totalSavedCount = savedThisWeek.size();
         int totalReadCount = readThisWeek.size();
@@ -48,8 +47,8 @@ public class ReportService {
         // 2. 밸런스 집계
         Map<String, Integer> balance = calculateBalance(readThisWeek);
 
-        // 3. 관심사 갭 분석
-        List<WeeklyReportResponse.InterestGap> interestGaps = calculateInterestGaps(userId, weekStart, weekEnd);
+        // 3. 관심사 갭 분석 (수정: 조회한 리스트를 파라미터로 전달하여 중복 쿼리 방지)
+        List<WeeklyReportResponse.InterestGap> interestGaps = calculateInterestGaps(savedThisWeek, readThisWeek);
 
         // 4. 주차 라벨 생성
         String weekLabel = generateWeekLabel(weekStart);
@@ -70,26 +69,44 @@ public class ReportService {
     }
 
     /**
-     * 핵심 소비현황 조회
+     * 핵심 소비현황 조회 (N+1 문제 해결 적용)
      */
     @Transactional(readOnly = true)
     public ConsumptionResponse getConsumption(Long userId) {
         LocalDateTime[] weekRange = getCurrentWeekRange();
-        LocalDateTime weekStart = weekRange[0];
-        LocalDateTime weekEnd = weekRange[1];
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekRange[0], weekRange[1]);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
 
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart,
-                weekEnd);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository
-                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
-
-        // 최근 읽은 뉴스레터 목록
+        // 1. 최근 읽은 뉴스레터 목록 (Repository 메서드명 변경 가정: findTop10...)
+        // 만약 Repository 이름을 안 바꿨다면 기존 메서드를 쓰되, 아래 로직은 동일하게 적용
         List<UserNewsletter> recentReadList = userNewsletterRepository
                 .findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(userId);
 
+        // [N+1 해결] 2. 뉴스레터 ID 목록 추출
+        List<Long> newsletterIds = recentReadList.stream()
+                .map(un -> un.getNewsletter().getId())
+                .toList();
+
+        // [N+1 해결] 3. 관련된 토픽 정보를 한 번에 조회하여 Map으로 변환
+        Map<Long, String> categoryMap = new HashMap<>();
+        if (!newsletterIds.isEmpty()) {
+            List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findByNewsletterIdIn(newsletterIds);
+
+            for (TopicNewsletter tn : topicNewsletters) {
+                // Topic이 없거나 Category가 없는 경우 대비
+                String categoryName = "기타";
+                if (tn.getTopic() != null && tn.getTopic().getCategory() != null) {
+                    categoryName = tn.getTopic().getCategory().getName();
+                }
+                categoryMap.put(tn.getNewsletter().getId(), categoryName);
+            }
+        }
+
+        // 4. Map을 사용하여 데이터 매핑 (DB 재조회 없음)
         List<ConsumptionResponse.RecentRead> recentReads = recentReadList.stream()
                 .map(un -> {
-                    String categoryName = getCategoryNameFromNewsletter(un);
+                    String categoryName = categoryMap.getOrDefault(un.getNewsletter().getId(), "기타");
+
                     LocalDate lastViewedDate = un.getLastViewedAt() != null
                             ? un.getLastViewedAt().toLocalDate()
                             : LocalDate.now();
@@ -118,8 +135,6 @@ public class ReportService {
                 .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
 
         Map<String, Integer> balance = calculateBalance(readThisWeek);
-
-        // 패턴 메시지 생성
         Map<String, String> pattern = generatePatternMessages(balance);
 
         return new BalanceResponse(
@@ -138,12 +153,17 @@ public class ReportService {
     @Transactional(readOnly = true)
     public GapAnalysisResponse getGapAnalysis(Long userId) {
         LocalDateTime[] weekRange = getCurrentWeekRange();
-        List<WeeklyReportResponse.InterestGap> gaps = calculateInterestGaps(userId, weekRange[0], weekRange[1]);
 
-        // InterestGap을 TopicGap으로 변환 (ID 포함)
+        // 수정: calculateInterestGaps가 리스트를 받도록 변경되었으므로 여기서 조회 후 전달
+        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekRange[0], weekRange[1]);
+        List<UserNewsletter> readThisWeek = userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
+
+        List<WeeklyReportResponse.InterestGap> gaps = calculateInterestGaps(savedThisWeek, readThisWeek);
+
+        // InterestGap을 TopicGap으로 변환
         List<GapAnalysisResponse.TopicGap> topicGaps = gaps.stream()
                 .map(gap -> new GapAnalysisResponse.TopicGap(
-                        null, // Topic ID는 추후 매핑 필요
+                        null, // TODO: Topic ID 매핑 필요 시 로직 추가 필요
                         gap.topicName(),
                         gap.savedCount(),
                         gap.readCount()))
@@ -156,7 +176,7 @@ public class ReportService {
     // ============== Private Helper Methods ==============
 
     /**
-     * 현재 주의 시작(월요일 00:00)과 종료(일요일 23:59) 반환
+     * 현재 주의 시작(월요일 00:00)과 종료(일요일 23:59:59.999...) 반환
      */
     private LocalDateTime[] getCurrentWeekRange() {
         LocalDate today = LocalDate.now();
@@ -164,7 +184,8 @@ public class ReportService {
         LocalDate sunday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
 
         LocalDateTime weekStart = monday.atStartOfDay();
-        LocalDateTime weekEnd = sunday.atTime(23, 59, 59);
+        // 수정: 23:59:59 대신 LocalTime.MAX 사용하여 정밀도 향상
+        LocalDateTime weekEnd = sunday.atTime(LocalTime.MAX);
 
         return new LocalDateTime[] { weekStart, weekEnd };
     }
@@ -173,17 +194,14 @@ public class ReportService {
      * Light/Deep, Now/Future 밸런스 집계
      */
     private Map<String, Integer> calculateBalance(List<UserNewsletter> newsletters) {
+        // ... (기존 로직 동일)
         int lightCount = 0, deepCount = 0, nowCount = 0, futureCount = 0;
 
         for (UserNewsletter un : newsletters) {
-            if (un.getDepthType() == DepthType.LIGHT)
-                lightCount++;
-            if (un.getDepthType() == DepthType.DEEP)
-                deepCount++;
-            if (un.getPerspectiveType() == PerspectiveType.NOW)
-                nowCount++;
-            if (un.getPerspectiveType() == PerspectiveType.FUTURE)
-                futureCount++;
+            if (un.getDepthType() == DepthType.LIGHT) lightCount++;
+            if (un.getDepthType() == DepthType.DEEP) deepCount++;
+            if (un.getPerspectiveType() == PerspectiveType.NOW) nowCount++;
+            if (un.getPerspectiveType() == PerspectiveType.FUTURE) futureCount++;
         }
 
         Map<String, Integer> balance = new HashMap<>();
@@ -197,24 +215,22 @@ public class ReportService {
 
     /**
      * 관심사 갭 분석: |저장 - 읽음| 절댓값이 큰 순서로 Top 4
+     * 수정: DB 조회를 제거하고 파라미터로 리스트를 받음
      */
-    private List<WeeklyReportResponse.InterestGap> calculateInterestGaps(Long userId, LocalDateTime weekStart,
-            LocalDateTime weekEnd) {
-        List<UserNewsletter> savedThisWeek = userNewsletterRepository.findByUserIdAndCreatedAtBetween(userId, weekStart,
-                weekEnd);
-        List<UserNewsletter> readThisWeek = userNewsletterRepository
-                .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekStart, weekEnd);
+    private List<WeeklyReportResponse.InterestGap> calculateInterestGaps(
+            List<UserNewsletter> savedThisWeek,
+            List<UserNewsletter> readThisWeek) {
 
-        // Newsletter ID 수집
-        List<Long> savedNewsletterIds = savedThisWeek.stream()
+        // 1. Newsletter ID 수집
+        Set<Long> savedNewsletterIds = savedThisWeek.stream()
                 .map(un -> un.getNewsletter().getId())
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet()); // 검색 속도를 위해 Set 사용
 
-        List<Long> readNewsletterIds = readThisWeek.stream()
+        Set<Long> readNewsletterIds = readThisWeek.stream()
                 .map(un -> un.getNewsletter().getId())
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
-        // 모든 Newsletter ID 합치기
+        // 2. 모든 Newsletter ID 합치기
         Set<Long> allNewsletterIds = new HashSet<>();
         allNewsletterIds.addAll(savedNewsletterIds);
         allNewsletterIds.addAll(readNewsletterIds);
@@ -223,41 +239,34 @@ public class ReportService {
             return Collections.emptyList();
         }
 
-        // TopicNewsletter로 Newsletter → Topic 매핑
+        // 3. TopicNewsletter로 Newsletter → Topic 매핑 (Bulk 조회)
         List<TopicNewsletter> topicNewsletters = topicNewsletterRepository
                 .findByNewsletterIdIn(new ArrayList<>(allNewsletterIds));
 
-        // Topic별 저장/읽음 개수 집계
+        // 4. Topic별 저장/읽음 개수 집계
         Map<String, Integer> topicSavedCount = new HashMap<>();
         Map<String, Integer> topicReadCount = new HashMap<>();
 
         for (TopicNewsletter tn : topicNewsletters) {
-            Topic topic = tn.getTopic();
-            if (topic == null)
-                continue;
+            if (tn.getTopic() == null) continue;
 
-            Category category = topic.getCategory();
-            String topicName = category != null ? category.getName() : topic.getName();
-
+            Category category = tn.getTopic().getCategory();
+            String topicName = (category != null) ? category.getName() : tn.getTopic().getName();
             Long newsletterId = tn.getNewsletter().getId();
 
-            // 저장 개수
             if (savedNewsletterIds.contains(newsletterId)) {
                 topicSavedCount.put(topicName, topicSavedCount.getOrDefault(topicName, 0) + 1);
             }
-
-            // 읽음 개수
             if (readNewsletterIds.contains(newsletterId)) {
                 topicReadCount.put(topicName, topicReadCount.getOrDefault(topicName, 0) + 1);
             }
         }
 
-        // 모든 토픽명 수집
+        // 5. Gap 계산 및 정렬 (기존 로직 동일)
         Set<String> allTopics = new HashSet<>();
         allTopics.addAll(topicSavedCount.keySet());
         allTopics.addAll(topicReadCount.keySet());
 
-        // Gap 계산 및 정렬
         return allTopics.stream()
                 .map(topicName -> {
                     int saved = topicSavedCount.getOrDefault(topicName, 0);
@@ -267,37 +276,28 @@ public class ReportService {
                 .sorted((a, b) -> {
                     int gapA = Math.abs(a.savedCount() - a.readCount());
                     int gapB = Math.abs(b.savedCount() - b.readCount());
-                    return Integer.compare(gapB, gapA); // 내림차순
+                    return Integer.compare(gapB, gapA);
                 })
                 .limit(4)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 주차 라벨 생성: "1월 첫째주", "1월 둘째주" 등
-     */
+    // generateWeekLabel, generatePatternMessages는 기존과 동일하여 생략 가능하지만
+    // 전체 코드의 완결성을 위해 아래에 유지합니다.
+
     private String generateWeekLabel(LocalDateTime weekStart) {
         int month = weekStart.getMonthValue();
         int weekOfMonth = (weekStart.getDayOfMonth() - 1) / 7 + 1;
-
         String[] weekNames = { "첫째주", "둘째주", "셋째주", "넷째주", "다섯째주" };
         String weekName = weekOfMonth <= 5 ? weekNames[weekOfMonth - 1] : "다섯째주";
-
         return month + "월 " + weekName;
     }
 
-    /**
-     * 패턴 메시지 생성 (샘플 메시지)
-     */
     private Map<String, String> generatePatternMessages(Map<String, Integer> balance) {
         int light = balance.get("light");
         int deep = balance.get("deep");
-        int now = balance.get("now");
-        int future = balance.get("future");
-
+        // ... (나머지 로직 동일)
         Map<String, String> pattern = new HashMap<>();
-
-        // Light 위주
         if (light > deep) {
             pattern.put("title", "핵심을 빠르게 파악하는 당신");
             pattern.put("description", "10분 미만의 가볍고 빠른 콘텐츠를 선호하시네요!");
@@ -307,25 +307,6 @@ public class ReportService {
             pattern.put("description", "심도 있는 긴 콘텐츠를 즐기시는군요!");
             pattern.put("quote", "깊이 있는 사고가 당신의 무기입니다.");
         }
-
         return pattern;
-    }
-
-    /**
-     * Newsletter로부터 Category 이름 추출
-     */
-    private String getCategoryNameFromNewsletter(UserNewsletter un) {
-        // TopicNewsletter를 통해 Topic → Category 매핑
-        List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findByNewsletterIdIn(
-                Collections.singletonList(un.getNewsletter().getId()));
-
-        if (!topicNewsletters.isEmpty()) {
-            Topic topic = topicNewsletters.get(0).getTopic();
-            if (topic != null && topic.getCategory() != null) {
-                return topic.getCategory().getName();
-            }
-        }
-
-        return "기타";
     }
 }

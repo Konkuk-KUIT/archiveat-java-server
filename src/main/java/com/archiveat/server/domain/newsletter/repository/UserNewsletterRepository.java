@@ -14,6 +14,9 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
     List<UserNewsletter> findAllByUserId(Long userId);
 
+    int deleteByIdAndUserId(Long id, Long userId);
+    Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
+
     // 주간 리포트: 기간 내 저장된 뉴스레터
     List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
 
