@@ -46,9 +46,14 @@ public class NewsletterService {
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
 
+        if(!userNewsletter.isRead())
+            userNewsletter.updateIsRead();
+        else
+            userNewsletter.updateLastViewedAt();
+        userNewsletterRepository.save(userNewsletter);
+
         Newsletter newsletter = userNewsletter.getNewsletter();
 
-        // TODO: newsletterSummary JSON → List<NewsletterSummaryBlock> 변환
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         return new ViewNewsletterResponse(
@@ -70,9 +75,14 @@ public class NewsletterService {
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
 
+        if(!userNewsletter.isRead())
+            userNewsletter.updateIsRead();
+        else
+            userNewsletter.updateLastViewedAt();
+        userNewsletterRepository.save(userNewsletter);
+
         Newsletter newsletter = userNewsletter.getNewsletter();
 
-        // TODO: newsletterSummary JSON → List<NewsletterSummaryBlock> 변환
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         return new SimpleViewNewsletterResponse(
@@ -119,9 +129,10 @@ public class NewsletterService {
         User user = userRepository.findById(userId)
                 .orElseThrow(()-> new IllegalArgumentException("User Not Found"));
 
-        UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userId, userNewsletterId)
+        UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(()-> new IllegalArgumentException("Newsletter not found or access denied"));
 
+        userNewsletter.updateIsRead();
     }
 
     private Domain getOrCreateDomain(String domainName) {

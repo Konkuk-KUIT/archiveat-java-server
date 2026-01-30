@@ -54,7 +54,12 @@ public class UserNewsletter extends BaseEntity {
 
     public void updateIsRead() {
         this.isRead = true;
+        updateIsConfirmed();
         updateLastViewedAt();
+    }
+
+    public void updateIsConfirmed() {
+        this.isConfirmed = true;
     }
 
     public void updateLastViewedAt() {
