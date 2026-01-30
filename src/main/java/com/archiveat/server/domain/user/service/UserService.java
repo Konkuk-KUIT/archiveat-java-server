@@ -32,10 +32,10 @@ public class UserService {
 
         String accessToken = jwtUtil.generateAccessToken(user.getId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
-
         user.updateRefreshToken(refreshToken);
 
-        //TODO 저장하는 거 맞는지 물어보기
+        user.updateLastLoginAt();
+
         userRepository.save(user);
 
         return new IssuedTokens(accessToken, refreshToken);
@@ -58,8 +58,10 @@ public class UserService {
 
         String accessToken = jwtUtil.generateAccessToken(savedUser.getId());
         String refreshToken = jwtUtil.generateRefreshToken(savedUser.getId());
-
         savedUser.updateRefreshToken(refreshToken);
+
+        savedUser.updateLastLoginAt();
+
         userRepository.save(savedUser);
 
         return new IssuedTokens(accessToken, refreshToken);
