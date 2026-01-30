@@ -1,10 +1,13 @@
 package com.archiveat.server.domain.explore.entity;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "topics")
 public class Topic {
     @Id
