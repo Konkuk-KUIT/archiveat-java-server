@@ -22,20 +22,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HomeService {
 
-    private final UserRepository userRepository;
     private final UserNewsletterRepository userNewsletterRepository;
     private final CollectionRepository collectionRepository;
     private final CollectionNewsletterRepository collectionNewsletterRepository; // 추가된 의존성
 
     @Transactional(readOnly = true)
     public HomeResponse getHomeData(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found. id=" + userId));
-
         String firstGreeting = getDynamicGreeting();
         String secondGreeting = "오늘도 한 걸음 성장해볼까요?";
-        List<HomeResponse.TabResponse> tabs = getTabResponses(); // 이제 메서드가 존재합니다.
+        List<HomeResponse.TabResponse> tabs = getTabResponses();
 
+        // 1. 뉴스레터 카드 데이터 조회
+        // 전달받은 userId를 리포지토리에 직접 사용하여 DB 쿼리 효율을 높입니다.
         List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId).stream()
                 .map(un -> new HomeResponse.ContentCardResponse(
                         un.getNewsletter().getId(),
@@ -48,12 +46,12 @@ public class HomeService {
                 ))
                 .collect(Collectors.toList());
 
+        // 2. 컬렉션 카드 데이터 조회
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository.findAllByUserId(userId).stream()
                 .map(col -> {
-                    // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
                     List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId()).stream()
                             .map(cn -> cn.getNewsletter().getThumbnailUrl())
-                            .limit(4) // 기획 디자인에 따라 최대 4개로 제한합니다.
+                            .limit(4)
                             .collect(Collectors.toList());
 
                     return new HomeResponse.ContentCollectionCardResponse(
@@ -71,10 +69,7 @@ public class HomeService {
         return new HomeResponse(firstGreeting, secondGreeting, tabs, contentCards, contentCollectionCards);
     }
 
-    /**
-     * 인사이트: Enum에 정의된 탭 정보를 기반으로 UI에 필요한 탭 리스트를 생성합니다.
-     * 이렇게 분리하면 탭이 추가되거나 문구가 바뀌어도 비즈니스 로직을 수정할 필요가 없습니다.
-     */
+
     private List<HomeResponse.TabResponse> getTabResponses() {
         return Arrays.stream(HomeTabType.values())
                 .map(tab -> new HomeResponse.TabResponse(
