@@ -7,6 +7,7 @@ import com.archiveat.server.domain.newsletter.dto.response.SimpleViewNewsletterR
 import com.archiveat.server.domain.newsletter.dto.response.ViewNewsletterResponse;
 import com.archiveat.server.domain.newsletter.service.NewsletterService;
 import com.archiveat.server.global.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -38,7 +39,7 @@ public class NewsletterController {
                 userId,
                 userNewsletterId
         );
-        return ApiResponse.ok(viewNewsletterResponse); // 204
+        return ApiResponse.ok(viewNewsletterResponse);
     }
 
     @GetMapping("/{userNewsletterId}/simple")
@@ -50,13 +51,13 @@ public class NewsletterController {
                 userId,
                 userNewsletterId
         );
-        return ApiResponse.ok(simpleViewNewsletterResponse); // 204
+        return ApiResponse.ok(simpleViewNewsletterResponse);
     }
 
     @PostMapping("")
     public ApiResponse<GenerateNewsletterResponse> generateNewsletter(
             @AuthenticationPrincipal Long userId,
-            @RequestBody GenerateNewsletterRequest generateNewsletterRequest
+            @Valid @RequestBody GenerateNewsletterRequest generateNewsletterRequest
     ){
         GenerateNewsletterResponse generateNewsletterResponse = newsletterService.generateNewsletter(
                 userId,
