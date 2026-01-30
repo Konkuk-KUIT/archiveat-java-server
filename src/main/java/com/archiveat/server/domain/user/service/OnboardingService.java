@@ -13,12 +13,14 @@ import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.AvailabilityType;
 import com.archiveat.server.global.common.constant.EmploymentType;
+import com.archiveat.server.global.common.constant.PerspectiveType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -84,6 +86,8 @@ public class OnboardingService {
         );
     }
 
+    // OnboardingService.java의 해당 메서드를 수정합니다.
+
     @Transactional
     public void submitOnboardingInfo(Long userId, OnboardingInfoRequest request) {
         // 1. 유저 조회
@@ -94,25 +98,33 @@ public class OnboardingService {
         user.updateOnboardingInfo(request.employmentType(), request.availability());
 
         // 3. 기존 관심사(UserTopic) 삭제 (Delete All)
+        // 새로운 정책에 따라 전체 지도를 다시 그려야 하므로 기존 데이터를 초기화합니다.
         userTopicRepository.deleteAllByUserId(userId);
 
-        // 4. 새로운 관심사 저장 (Insert All)
-        // 모든 카테고리의 topicId를 하나의 리스트로 모읍니다.
-        List<Long> allTopicIds = request.interests().stream()
-                .flatMap(interest -> interest.topicIds().stream())
-                .distinct()
-                .collect(Collectors.toList());
+        // 4. 시스템 내 모든 토픽 조회
+        // 모든 유저에게 전체 토픽에 대한 NOW/FUTURE 상태를 부여하기 위해 기준 데이터를 가져옵니다.
+        List<Topic> allTopics = topicRepository.findAll();
 
-        // Topic 엔티티들을 조회하여 UserTopic으로 변환 후 저장
-        List<UserTopic> newUserTopics = allTopicIds.stream()
-                .map(topicId -> {
-                    Topic topic = topicRepository.findById(topicId)
-                            .orElseThrow(() -> new IllegalStateException("Topic not found. id=" + topicId));
-                    return new UserTopic(user, topic);
+        // 5. 요청된(선택된) 토픽 ID들을 Set으로 변환
+        // 조회 성능을 높이기 위해 List를 Set으로 변환하여 포함 여부(contains) 확인을 최적화합니다.
+        Set<Long> selectedTopicIds = request.interests().stream()
+                .flatMap(interest -> interest.topicIds().stream())
+                .collect(Collectors.toSet());
+
+        // 6. 모든 토픽을 유저 관심사(UserTopic)로 매핑
+        List<UserTopic> userTopics = allTopics.stream()
+                .map(topic -> {
+                    // 선택된 ID 셋에 포함되어 있으면 NOW, 없으면 FUTURE로 상태를 결정합니다.
+                    PerspectiveType type = selectedTopicIds.contains(topic.getId())
+                            ? PerspectiveType.NOW
+                            : PerspectiveType.FUTURE;
+
+                    return new UserTopic(user, topic, type);
                 })
                 .collect(Collectors.toList());
 
-        userTopicRepository.saveAll(newUserTopics);
+        // 7. 일괄 저장 (Insert All)
+        userTopicRepository.saveAll(userTopics);
     }
 
 }
