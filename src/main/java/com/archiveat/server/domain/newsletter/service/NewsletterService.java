@@ -176,11 +176,17 @@ public class NewsletterService {
         if (host.contains("youtube.com") || host.contains("youtu.be")) {
             return "YouTube";
         }
-        if (host.contains("naver.com")) {
-            return "Naver";
+        if (host.contains("news.naver.com")) {
+            return "Naver News";
         }
         if (host.contains("brunch.co.kr")) {
             return "Brunch";
+        }
+        if (host.contains("news.naver.com")) {
+            return "Naver News";
+        }
+        if(host.contains("tistory.com")) {
+            return "tistory";
         }
         return host; // fallback
     }
