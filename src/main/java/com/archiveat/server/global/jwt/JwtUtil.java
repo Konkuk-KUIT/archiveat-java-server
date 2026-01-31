@@ -14,16 +14,19 @@ public class JwtUtil {
 
     private final SecretKey secretKey;
     private final long accessTokenExpirationMs;
+    private final long refreshTokenExpirationMs;
     private final String issuer;
 
     public JwtUtil(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-expiration-ms}") long accessTokenExpirationMs,
+            @Value("${jwt.refresh-token-expiration-ms}") long refreshTokenExpirationMs,
             @Value("${jwt.issuer}") String issuer
     ) {
         // HS256은 키가 충분히 길어야 안전/오류 방지 (최소 32바이트 권장)
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpirationMs = accessTokenExpirationMs;
+        this.refreshTokenExpirationMs = refreshTokenExpirationMs;
         this.issuer = issuer;
     }
 
@@ -37,6 +40,21 @@ public class JwtUtil {
                 .setSubject(String.valueOf(userId)) // userId를 subject로
                 .setIssuedAt(now)
                 .setExpiration(expiry)
+                .claim("type", "access")
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateRefreshToken(Long userId) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + refreshTokenExpirationMs);
+
+        return Jwts.builder()
+                .setIssuer(issuer)
+                .setSubject(String.valueOf(userId))
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .claim("type", "refresh")
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }

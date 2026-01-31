@@ -1,4 +1,4 @@
-package com.archiveat.server.domain.user.dto.response;
+package com.archiveat.server.domain.auth.dto.response;
 
 public record LoginResponse (
         String accessToken,

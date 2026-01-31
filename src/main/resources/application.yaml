@@ -16,8 +16,9 @@ spring:
 
 jwt:
   secret: "change-this-to-a-very-long-secret-key-at-least-32-bytes!"
-  access-token-expiration-ms: 3600000  # 1시간
   issuer: "archiveat"
+  access-token-expiration-ms: 3600000  # 1시간
+  refresh-token-expiration-ms: 1209600000   #14일
 
 springdoc:
   # 1. 화면(UI) 접속 주소 변경
