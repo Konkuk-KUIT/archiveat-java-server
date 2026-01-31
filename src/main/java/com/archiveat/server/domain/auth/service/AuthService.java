@@ -1,6 +1,5 @@
-package com.archiveat.server.domain.user.service;
+package com.archiveat.server.domain.auth.service;
 
-import com.archiveat.server.domain.user.dto.response.LoginResponse;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.jwt.JwtUtil;
@@ -13,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 //final 이거나 @NonNull 이 붙은 필드만 파라미터로 받는 생성자를 자동 생성
 @RequiredArgsConstructor
 @Service
-public class UserService {
+public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;

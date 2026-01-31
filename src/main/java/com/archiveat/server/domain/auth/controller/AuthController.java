@@ -1,10 +1,10 @@
-package com.archiveat.server.domain.user.controller;
+package com.archiveat.server.domain.auth.controller;
 
-import com.archiveat.server.domain.user.dto.request.EmailCheckRequest;
-import com.archiveat.server.domain.user.dto.request.LoginRequest;
-import com.archiveat.server.domain.user.dto.request.SignupRequest;
-import com.archiveat.server.domain.user.dto.response.LoginResponse;
-import com.archiveat.server.domain.user.service.UserService;
+import com.archiveat.server.domain.auth.dto.request.EmailCheckRequest;
+import com.archiveat.server.domain.auth.dto.request.LoginRequest;
+import com.archiveat.server.domain.auth.dto.request.SignupRequest;
+import com.archiveat.server.domain.auth.dto.response.LoginResponse;
+import com.archiveat.server.domain.auth.service.AuthService;
 import com.archiveat.server.global.common.response.ApiResponse;
 import com.archiveat.server.global.common.response.SuccessCode;
 import com.archiveat.server.global.jwt.RefreshTokenCookieProvider;
@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/auth")
-public class UserController {
-    private final UserService userService;
+public class AuthController {
+    private final AuthService authService;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
 
     @PostMapping("/signup")
@@ -30,7 +30,7 @@ public class UserController {
             @Valid @RequestBody SignupRequest signupRequest,
             HttpServletResponse response
     ){
-        UserService.IssuedTokens tokens = userService.signupAndLogin(
+        AuthService.IssuedTokens tokens = authService.signupAndLogin(
                 signupRequest.getEmail(),
                 signupRequest.getPassword(),
                 signupRequest.getNickname()
@@ -58,7 +58,7 @@ public class UserController {
     public ApiResponse<Boolean> checkEmail(
             @Valid @RequestBody EmailCheckRequest emailCheckRequest
             ){
-        boolean exists = userService.checkEmail(emailCheckRequest.getEmail());
+        boolean exists = authService.checkEmail(emailCheckRequest.getEmail());
         boolean available = !exists;
 
         return ApiResponse.ok(available);
@@ -69,7 +69,7 @@ public class UserController {
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletResponse response
     ){
-        UserService.IssuedTokens tokens = userService.login(
+        AuthService.IssuedTokens tokens = authService.login(
                 loginRequest.getEmail(),
                 loginRequest.getPassword()
         );
@@ -95,7 +95,7 @@ public class UserController {
             HttpServletResponse response
     ) {
         String refreshToken = refreshTokenCookieProvider.extract(request);
-        UserService.IssuedTokens tokens = userService.reissueTokensByRefresh(refreshToken);
+        AuthService.IssuedTokens tokens = authService.reissueTokensByRefresh(refreshToken);
 
         // rotation 적용했으니 쿠키 갱신
         refreshTokenCookieProvider.set(response, tokens.refreshToken());
@@ -112,7 +112,7 @@ public class UserController {
             @AuthenticationPrincipal Long userId,
             HttpServletResponse response
     ) {
-        userService.logout(userId);
+        authService.logout(userId);
         refreshTokenCookieProvider.clear(response);
         return ApiResponse.ok();
     }

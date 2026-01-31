@@ -9,7 +9,6 @@ import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
-import com.archiveat.server.global.common.constant.PerspectiveType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service

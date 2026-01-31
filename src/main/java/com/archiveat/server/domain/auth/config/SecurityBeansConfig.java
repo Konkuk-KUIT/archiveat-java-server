@@ -1,4 +1,4 @@
-package com.archiveat.server.domain.user.config;
+package com.archiveat.server.domain.auth.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
