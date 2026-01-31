@@ -37,8 +37,8 @@ public class User extends BaseEntity {
     private Integer commuteDurationMin;
     private LocalDateTime lastLoginAt;
 
-    @Column(length = 1000)
-    private String refreshToken;
+    @Column(length = 64)
+    private String refreshTokenHash;
 
     @Builder
     public User(String email, String nickname, EmploymentType employmentType) {
@@ -71,15 +71,15 @@ public class User extends BaseEntity {
     }
 
     // refresh 토큰 저장/삭제/검증 편의 메서드
-    public void updateRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
+    public void updateRefreshTokenHash(String refreshTokenHash) {
+        this.refreshTokenHash = refreshTokenHash;
     }
 
     public void clearRefreshToken() {
-        this.refreshToken = null;
+        this.refreshTokenHash = null;
     }
 
     public boolean matchesRefreshToken(String refreshToken) {
-        return this.refreshToken != null && this.refreshToken.equals(refreshToken);
+        return this.refreshTokenHash != null && this.refreshTokenHash.equals(refreshToken);
     }
 }

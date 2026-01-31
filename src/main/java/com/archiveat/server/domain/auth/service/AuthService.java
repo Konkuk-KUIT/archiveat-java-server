@@ -3,6 +3,7 @@ package com.archiveat.server.domain.auth.service;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.jwt.JwtUtil;
+import com.archiveat.server.global.security.TokenHashUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-
+    private final TokenHashUtil tokenHashUtil;
 
     private static final String GRANT_TYPE = "Bearer";
 
@@ -31,10 +32,9 @@ public class AuthService {
 
         String accessToken = jwtUtil.generateAccessToken(user.getId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
-        user.updateRefreshToken(refreshToken);
 
+        user.updateRefreshTokenHash(tokenHashUtil.sha256Hex(refreshToken));
         user.updateLastLoginAt();
-
         userRepository.save(user);
 
         return new IssuedTokens(accessToken, refreshToken);
@@ -57,10 +57,9 @@ public class AuthService {
 
         String accessToken = jwtUtil.generateAccessToken(savedUser.getId());
         String refreshToken = jwtUtil.generateRefreshToken(savedUser.getId());
-        savedUser.updateRefreshToken(refreshToken);
 
+        savedUser.updateRefreshTokenHash(tokenHashUtil.sha256Hex(refreshToken));
         savedUser.updateLastLoginAt();
-
         userRepository.save(savedUser);
 
         return new IssuedTokens(accessToken, refreshToken);
@@ -79,7 +78,8 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
         // DB에 저장된 refresh와 일치해야 함
-        if (!user.matchesRefreshToken(refreshToken)) {
+        String incomingHash = tokenHashUtil.sha256Hex(refreshToken);
+        if (!user.matchesRefreshToken(incomingHash)) {
             throw new IllegalStateException("Refresh token invalid");
         }
 
@@ -87,7 +87,7 @@ public class AuthService {
 
         // Rotation: refresh도 새로 발급해서 교체 (보안↑)
         String newRefreshToken = jwtUtil.generateRefreshToken(userId);
-        user.updateRefreshToken(newRefreshToken);
+        user.updateRefreshTokenHash(tokenHashUtil.sha256Hex(newRefreshToken));
         userRepository.save(user);
 
         return new IssuedTokens(newAccessToken, newRefreshToken);
