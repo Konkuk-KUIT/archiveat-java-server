@@ -13,6 +13,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 25
+
+python:
+  server:
+    base-url: ${PYTHON_SERVER_URL:http://localhost:8000}
+    timeout:
+      connect: 10000   # 10초
+      response: 30000  # 30초 (LLM 처리 시간 고려)
 
 jwt:
   secret: "change-this-to-a-very-long-secret-key-at-least-32-bytes!"

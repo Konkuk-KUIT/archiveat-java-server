@@ -9,15 +9,22 @@ import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
+import com.archiveat.server.global.client.PythonClientService;
+import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.global.util.DomainClassifier;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class NewsletterService {
@@ -25,6 +32,7 @@ public class NewsletterService {
     private final UserNewsletterRepository userNewsletterRepository;
     private final UserRepository userRepository;
     private final DomainRepository domainRepository;
+    private final PythonClientService pythonClientService;
 
     private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -93,6 +101,13 @@ public class NewsletterService {
                 summaryBlocks);
     }
 
+    /**
+     * Newsletter 생성 엔드포인트 (비동기 패턴)
+     * 
+     * 1. Newsletter를 PENDING 상태로 DB에 저장
+     * 2. 즉시 클라이언트에 응답 반환 (PENDING 상태)
+     * 3. 백그라운드에서 비동기 작업 시작 (processNewsletterAsync)
+     */
     @Transactional
     public GenerateNewsletterResponse generateNewsletter(Long userId, String contentUrl, String memo) {
         Domain domain = resolveDomainFromUrl(contentUrl);
@@ -106,15 +121,82 @@ public class NewsletterService {
         UserNewsletter userNewsletter = userNewsletterRepository.save(
                 UserNewsletter.create(user, newsletter, memo));
 
-        // 커밋 이후에 LLM 작업 시작시키기(중요)
-        // applicationEventPublisher.publishEvent(
-        // new NewsletterLlmRequestedEvent(newsletter.getId(), contentUrl)
-        // );
+        // 비동기 작업 시작 (트랜잭션 커밋 후 실행)
+        // @Async 메서드는 별도 스레드에서 실행되므로 즉시 반환됩니다
+        Long newsletterId = newsletter.getId();
+        processNewsletterAsync(newsletterId, contentUrl);
 
         return new GenerateNewsletterResponse(
-                // TODO userNewsletterId 인지 newsletterId인지
                 userNewsletter.getId(),
                 newsletter.getLlmStatus().name());
+    }
+
+    /**
+     * Newsletter 비동기 처리 메서드
+     * 
+     * 백그라운드에서 실행되며, Python 서버 호출 및 DB 업데이트를 담당합니다.
+     * 처리 시간: 5-10초 (YouTube 데이터 추출 + Gemini LLM 요약)
+     */
+    @Async("taskExecutor")
+    public void processNewsletterAsync(Long newsletterId, String contentUrl) {
+        log.info("Starting async newsletter processing for ID: {}", newsletterId);
+        long startTime = System.currentTimeMillis();
+
+        try {
+            // 1. Newsletter 상태를 RUNNING으로 업데이트
+            Newsletter newsletter = newsletterRepository.findById(newsletterId)
+                    .orElseThrow(() -> new IllegalArgumentException("Newsletter not found: " + newsletterId));
+            newsletter.updateLlmStatus(LlmStatus.RUNNING);
+            newsletterRepository.save(newsletter);
+            log.info("Newsletter {} status updated to RUNNING", newsletterId);
+
+            // 2. URL 도메인 자동 분류
+            DomainClassifier.DomainType domainType = DomainClassifier.classify(contentUrl);
+            log.info("URL classified as: {} - {}", domainType, domainType.getDescription());
+
+            // 3. Python 서버 호출 (도메인 타입에 따라 적절한 엔드포인트 호출)
+            CompletableFuture<PythonSummaryResponse> future;
+
+            if (domainType.isYouTube()) {
+                // YouTube 영상 처리
+                future = pythonClientService.requestYouTubeSummary(contentUrl);
+            } else if (domainType.needsWebCrawling()) {
+                // 네이버 뉴스, 티스토리, 브런치, 일반 웹 크롤링
+                // user memo는 UserNewsletter에서 가져와야 하지만,
+                // 현재는 Newsletter만 전달받으므로 null 처리
+                // TODO: 필요시 UserNewsletter의 memo도 함께 전달
+                future = pythonClientService.requestNaverNewsSummary(contentUrl, null);
+            } else {
+                throw new IllegalArgumentException("Unsupported domain type: " + domainType);
+            }
+
+            PythonSummaryResponse response = future.get(); // 블로킹 대기 (백그라운드 스레드이므로 OK)
+
+            // 4. Newsletter 업데이트 (DONE 상태)
+            newsletter.updateFromPythonResponse(response);
+            newsletterRepository.save(newsletter);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Newsletter {} processed successfully in {}ms", newsletterId, duration);
+
+        } catch (Exception e) {
+            // 에러 발생 시 FAILED 상태로 저장
+            log.error("Failed to process newsletter {}: {}", newsletterId, e.getMessage(), e);
+
+            try {
+                Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
+                if (newsletter != null) {
+                    String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                    newsletter.setErrorMessage(errorMsg);
+                    newsletterRepository.save(newsletter);
+                }
+            } catch (Exception saveError) {
+                log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Newsletter {} processing failed after {}ms", newsletterId, duration);
+        }
     }
 
     @Transactional
