@@ -9,7 +9,6 @@ import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
-import com.archiveat.server.global.common.constant.PerspectiveType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
@@ -30,11 +28,10 @@ public class NewsletterService {
 
     private final ApplicationEventPublisher applicationEventPublisher;
 
-
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
         int deleted = userNewsletterRepository.deleteByIdAndUser_Id(userNewsletterId, userId);
-        if(deleted == 0) {
+        if (deleted == 0) {
             // TODO throw new NewsletterNotFoundException
         }
         return new DeleteNewsletterResponse(userNewsletterId);
@@ -46,7 +43,7 @@ public class NewsletterService {
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
 
-        if(!userNewsletter.isRead())
+        if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
         else
             userNewsletter.updateLastViewedAt();
@@ -57,16 +54,15 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         return new ViewNewsletterResponse(
-                userNewsletter.getId(),                 // userNewsletterId
-                null,                                   // categoryName (추후 연결)
-                null,                                   // topicName (추후 연결)
+                userNewsletter.getId(), // userNewsletterId
+                null, // categoryName (추후 연결)
+                null, // topicName (추후 연결)
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                null,                                   // label (아직 도메인 없음)
+                null, // label (아직 도메인 없음)
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
-                summaryBlocks
-        );
+                summaryBlocks);
     }
 
     @Transactional
@@ -75,7 +71,7 @@ public class NewsletterService {
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
 
-        if(!userNewsletter.isRead())
+        if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
         else
             userNewsletter.updateLastViewedAt();
@@ -86,51 +82,48 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         return new SimpleViewNewsletterResponse(
-                userNewsletter.getId(),                 // userNewsletterId
-                null,                                   // categoryName (추후 연결)
-                null,                                   // topicName (추후 연결)
+                userNewsletter.getId(), // userNewsletterId
+                null, // categoryName (추후 연결)
+                null, // topicName (추후 연결)
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                null,                                   // label (아직 도메인 없음)
+                null, // label (아직 도메인 없음)
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
-                summaryBlocks
-        );
+                summaryBlocks);
     }
 
     @Transactional
     public GenerateNewsletterResponse generateNewsletter(Long userId, String contentUrl, String memo) {
         Domain domain = resolveDomainFromUrl(contentUrl);
 
-        User user =  userRepository.findById(userId)
-                .orElseThrow(()-> new IllegalArgumentException("User Not Found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
 
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
-                .orElseGet(()-> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
+                .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
 
         UserNewsletter userNewsletter = userNewsletterRepository.save(
-                UserNewsletter.create(user, newsletter, memo)
-        );
+                UserNewsletter.create(user, newsletter, memo));
 
         // 커밋 이후에 LLM 작업 시작시키기(중요)
-//        applicationEventPublisher.publishEvent(
-//                new NewsletterLlmRequestedEvent(newsletter.getId(), contentUrl)
-//        );
+        // applicationEventPublisher.publishEvent(
+        // new NewsletterLlmRequestedEvent(newsletter.getId(), contentUrl)
+        // );
 
         return new GenerateNewsletterResponse(
                 // TODO userNewsletterId 인지 newsletterId인지
                 userNewsletter.getId(),
-                newsletter.getLlmStatus().name()
-        );
+                newsletter.getLlmStatus().name());
     }
 
     @Transactional
     public void updateIsRead(Long userId, Long userNewsletterId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(()-> new IllegalArgumentException("User Not Found"));
+                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
 
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(()-> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
 
         userNewsletter.updateIsRead();
     }
@@ -158,7 +151,8 @@ public class NewsletterService {
         try {
             URI uri = URI.create(url);
             String host = uri.getHost(); // www.youtube.com
-            if (host == null) return null;
+            if (host == null)
+                return null;
 
             // www 제거
             if (host.startsWith("www.")) {
@@ -171,7 +165,8 @@ public class NewsletterService {
     }
 
     public String normalizeDomainName(String host) {
-        if (host == null) return "Unknown";
+        if (host == null)
+            return "Unknown";
 
         if (host.contains("youtube.com") || host.contains("youtu.be")) {
             return "YouTube";
@@ -185,7 +180,7 @@ public class NewsletterService {
         if (host.contains("news.naver.com")) {
             return "Naver News";
         }
-        if(host.contains("tistory.com")) {
+        if (host.contains("tistory.com")) {
             return "tistory";
         }
         return host; // fallback
