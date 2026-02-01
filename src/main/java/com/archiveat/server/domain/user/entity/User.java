@@ -37,6 +37,9 @@ public class User extends BaseEntity {
     private Integer commuteDurationMin;
     private LocalDateTime lastLoginAt;
 
+    @Column(length = 64)
+    private String refreshTokenHash;
+
     @Builder
     public User(String email, String nickname, EmploymentType employmentType) {
         this.email = email;
@@ -50,6 +53,10 @@ public class User extends BaseEntity {
         this.nickname = nickname;
     }
 
+    public void updateLastLoginAt() {
+        this.lastLoginAt = LocalDateTime.now();
+    }
+
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
@@ -61,5 +68,18 @@ public class User extends BaseEntity {
         this.prefLunch = availability.pref_lunch();
         this.prefEvening = availability.pref_evening();
         this.prefBedtime = availability.pref_bedtime();
+    }
+
+    // refresh 토큰 저장/삭제/검증 편의 메서드
+    public void updateRefreshTokenHash(String refreshTokenHash) {
+        this.refreshTokenHash = refreshTokenHash;
+    }
+
+    public void clearRefreshToken() {
+        this.refreshTokenHash = null;
+    }
+
+    public boolean matchesRefreshToken(String refreshToken) {
+        return this.refreshTokenHash != null && this.refreshTokenHash.equals(refreshToken);
     }
 }

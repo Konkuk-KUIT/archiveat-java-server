@@ -42,14 +42,16 @@ public class HomeService {
                         un.getNewsletter().getTitle(),
                         un.getNewsletter().getSmallCardSummary(),
                         un.getNewsletter().getMediumCardSummary(),
-                        un.getNewsletter().getThumbnailUrl()
-                ))
+                        un.getNewsletter().getThumbnailUrl()))
                 .collect(Collectors.toList());
 
-        // 2. 컬렉션 카드 데이터 조회
-        List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository.findAllByUserId(userId).stream()
+
+        List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
+                .findAllByUserId(userId).stream()
                 .map(col -> {
-                    List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId()).stream()
+                    // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
+                    List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId())
+                            .stream()
                             .map(cn -> cn.getNewsletter().getThumbnailUrl())
                             .limit(4)
                             .collect(Collectors.toList());
@@ -61,8 +63,7 @@ public class HomeService {
                             col.getTitle(),
                             col.getSmallCardSummary(),
                             col.getMediumCardSummary(),
-                            thumbnailUrls
-                    );
+                            thumbnailUrls);
                 })
                 .collect(Collectors.toList());
 
@@ -75,8 +76,7 @@ public class HomeService {
                 .map(tab -> new HomeResponse.TabResponse(
                         tab.name(),
                         tab.getLabel(),
-                        tab.getSubMessage()
-                ))
+                        tab.getSubMessage()))
                 .collect(Collectors.toList());
     }
 
