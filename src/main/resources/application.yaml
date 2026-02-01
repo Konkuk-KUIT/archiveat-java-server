@@ -22,10 +22,10 @@ spring:
 
 python:
   server:
-    base-url: ${PYTHON_SERVER_URL:http://localhost:8000}
+    base-url: ${PYTHON_SERVER_URL:http://127.0.0.1:8000}
     timeout:
       connect: 10000   # 10초
-      response: 30000  # 30초 (LLM 처리 시간 고려)
+      response: 600000  # 600초 (10분 - LLM 처리 + Whisper STT 시간 고려)
 
 jwt:
   secret: "change-this-to-a-very-long-secret-key-at-least-32-bytes!"

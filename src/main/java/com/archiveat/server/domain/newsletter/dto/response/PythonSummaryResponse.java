@@ -15,6 +15,9 @@ public class PythonSummaryResponse {
     @JsonProperty("video_info")
     private VideoInfo videoInfo;
 
+    @JsonProperty("article_info")
+    private ArticleInfo articleInfo;
+
     private Analysis analysis;
 
     @Getter
@@ -26,7 +29,7 @@ public class PythonSummaryResponse {
         @JsonProperty("thumbnail_url")
         private String thumbnailUrl;
 
-        @JsonProperty("content_url")
+        @JsonProperty(" content_url")
         private String contentUrl;
 
         private String channel;
@@ -36,9 +39,28 @@ public class PythonSummaryResponse {
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class ArticleInfo {
+        private String title;
+
+        @JsonProperty("thumbnail_url")
+        private String thumbnailUrl;
+
+        @JsonProperty("content_url")
+        private String contentUrl;
+
+        @JsonProperty("word_count")
+        private Integer wordCount; // 글자 수
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Analysis {
-        private String category;
-        private String topic;
+        @JsonProperty("category")
+        private String categoryName;
+
+        @JsonProperty("topic")
+        private String topicName;
 
         @JsonProperty("small_card_summary")
         private String smallCardSummary;

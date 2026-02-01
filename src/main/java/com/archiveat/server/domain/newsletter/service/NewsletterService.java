@@ -24,6 +24,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Slf4j
 @RequiredArgsConstructor
 @Service
@@ -33,6 +35,7 @@ public class NewsletterService {
     private final UserRepository userRepository;
     private final DomainRepository domainRepository;
     private final PythonClientService pythonClientService;
+    private final com.archiveat.server.domain.explore.repository.UserTopicRepository userTopicRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -59,18 +62,43 @@ public class NewsletterService {
 
         Newsletter newsletter = userNewsletter.getNewsletter();
 
-        List<NewsletterSummaryBlock> summaryBlocks = List.of();
+        // newsletter_summary JSON 파싱
+        List<NewsletterSummaryBlock> summaryBlocks = parseNewsletterSummary(newsletter.getNewsletterSummary());
+
+        // Label 계산: UserNewsletter에 저장된 perspectiveType + depthType 조합
+        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+                userNewsletter.getDepthType(),
+                userNewsletter.getPerspectiveType());
 
         return new ViewNewsletterResponse(
                 userNewsletter.getId(), // userNewsletterId
-                null, // categoryName (추후 연결)
-                null, // topicName (추후 연결)
+                newsletter.getCategory(), // categoryName
+                newsletter.getTopic(), // topicName
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                null, // label (아직 도메인 없음)
+                label, // label 계산됨!
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
                 summaryBlocks);
+    }
+
+    /**
+     * JSON 문자열을 NewsletterSummaryBlock 리스트로 파싱
+     */
+    private List<NewsletterSummaryBlock> parseNewsletterSummary(String newsletterSummaryJson) {
+        if (newsletterSummaryJson == null || newsletterSummaryJson.isEmpty() || newsletterSummaryJson.equals("[]")) {
+            return List.of();
+        }
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(
+                    newsletterSummaryJson,
+                    mapper.getTypeFactory().constructCollectionType(List.class, NewsletterSummaryBlock.class));
+        } catch (Exception e) {
+            // 파싱 실패 시 빈 리스트 반환
+            return List.of();
+        }
     }
 
     @Transactional
@@ -89,13 +117,18 @@ public class NewsletterService {
 
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
+        // Label 계산
+        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+                userNewsletter.getDepthType(),
+                userNewsletter.getPerspectiveType());
+
         return new SimpleViewNewsletterResponse(
                 userNewsletter.getId(), // userNewsletterId
-                null, // categoryName (추후 연결)
-                null, // topicName (추후 연결)
+                newsletter.getCategory(), // categoryName
+                newsletter.getTopic(), // topicName
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                null, // label (아직 도메인 없음)
+                label, // label 계산됨!
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
                 summaryBlocks);
@@ -175,6 +208,9 @@ public class NewsletterService {
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
+
+            // 5. 이 Newsletter를 사용하는 모든 UserNewsletter의 label 구성 요소 업데이트
+            updateLabelComponentsForAllUsers(newsletter);
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("Newsletter {} processed successfully in {}ms", newsletterId, duration);
@@ -266,5 +302,61 @@ public class NewsletterService {
             return "tistory";
         }
         return host; // fallback
+    }
+
+    /**
+     * Newsletter의 label 구성 요소(perspectiveType, depthType)를
+     * 모든 UserNewsletter에 대해 계산하여 업데이트
+     */
+    private void updateLabelComponentsForAllUsers(Newsletter newsletter) {
+        // 이 Newsletter를 사용하는 모든 UserNewsletter 조회
+        List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
+
+        for (UserNewsletter userNewsletter : userNewsletters) {
+            Long userId = userNewsletter.getUser().getId();
+
+            // 1. DepthType 계산 (소비 시간 기준)
+            com.archiveat.server.global.common.constant.DepthType depthType = calculateDepthType(
+                    newsletter.getConsumptionTimeMin());
+
+            // 2. PerspectiveType 계산 (사용자의 NOW 관심사 카테고리 확인)
+            com.archiveat.server.global.common.constant.PerspectiveType perspectiveType = calculatePerspectiveType(
+                    userId,
+                    newsletter.getCategory());
+
+            // 3. UserNewsletter 업데이트
+            userNewsletter.updateLabelComponents(perspectiveType, depthType);
+            userNewsletterRepository.save(userNewsletter);
+        }
+    }
+
+    /**
+     * 소비 시간 기준으로 DepthType 계산
+     */
+    private com.archiveat.server.global.common.constant.DepthType calculateDepthType(Integer consumptionTimeMin) {
+        if (consumptionTimeMin == null) {
+            return null;
+        }
+        return consumptionTimeMin < 10
+                ? com.archiveat.server.global.common.constant.DepthType.LIGHT
+                : com.archiveat.server.global.common.constant.DepthType.DEEP;
+    }
+
+    /**
+     * 사용자의 NOW 관심사 카테고리 포함 여부로 PerspectiveType 계산
+     */
+    private com.archiveat.server.global.common.constant.PerspectiveType calculatePerspectiveType(Long userId,
+            String categoryName) {
+        if (categoryName == null) {
+            return null;
+        }
+
+        List<String> nowCategories = userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(
+                userId,
+                com.archiveat.server.global.common.constant.PerspectiveType.NOW);
+
+        return nowCategories.contains(categoryName)
+                ? com.archiveat.server.global.common.constant.PerspectiveType.NOW
+                : com.archiveat.server.global.common.constant.PerspectiveType.FUTURE;
     }
 }

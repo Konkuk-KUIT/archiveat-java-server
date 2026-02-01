@@ -85,9 +85,9 @@ public class Newsletter extends BaseEntity {
     public void updateFromPythonResponse(PythonSummaryResponse response) {
         PythonSummaryResponse.Analysis analysis = response.getAnalysis();
 
-        // 카테고리 및 토픽
-        this.category = analysis.getCategory();
-        this.topic = analysis.getTopic();
+        // 카테고리 및 토픽 (필드명 변경됨: category → categoryName, topic → topicName)
+        this.category = analysis.getCategoryName();
+        this.topic = analysis.getTopicName();
 
         // 요약 정보
         this.smallCardSummary = analysis.getSmallCardSummary();
@@ -110,6 +110,17 @@ public class Newsletter extends BaseEntity {
             // duration을 분 단위로 변환 (초 -> 분)
             if (videoInfo.getDuration() != null) {
                 this.consumptionTimeMin = (int) Math.ceil(videoInfo.getDuration() / 60.0);
+            }
+        }
+        // article_info가 있으면 업데이트 (Naver News, 일반 웹의 경우)
+        else if (response.getArticleInfo() != null) {
+            PythonSummaryResponse.ArticleInfo articleInfo = response.getArticleInfo();
+            this.title = articleInfo.getTitle();
+            this.thumbnailUrl = articleInfo.getThumbnailUrl();
+
+            // word_count를 분 단위로 변환 (분당 400자 기준)
+            if (articleInfo.getWordCount() != null) {
+                this.consumptionTimeMin = (int) Math.ceil(articleInfo.getWordCount() / 400.0);
             }
         }
 
