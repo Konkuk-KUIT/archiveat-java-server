@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
 @Table(name = "user_newsletters")
 public class UserNewsletter extends BaseEntity {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // userNewsletterId
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -48,7 +49,7 @@ public class UserNewsletter extends BaseEntity {
         this.isConfirmed = false;
     }
 
-    public static UserNewsletter create(User user, Newsletter newsletter, String memo){
+    public static UserNewsletter create(User user, Newsletter newsletter, String memo) {
         return new UserNewsletter(user, newsletter, memo);
     }
 
@@ -64,5 +65,13 @@ public class UserNewsletter extends BaseEntity {
 
     public void updateLastViewedAt() {
         this.lastViewedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Label 구성 요소 업데이트 (LLM 처리 완료 후 호출)
+     */
+    public void updateLabelComponents(PerspectiveType perspectiveType, DepthType depthType) {
+        this.perspectiveType = perspectiveType;
+        this.depthType = depthType;
     }
 }
