@@ -49,6 +49,9 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+	// macOS(Apple Silicon) 환경에서 Netty DNS 리졸버 에러 해결을 위한 네이티브 라이브러리
+	runtimeOnly 'io.netty:netty-resolver-dns-native-macos:4.1.130.Final:osx-aarch_64'
+
 	// swagger
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 }
