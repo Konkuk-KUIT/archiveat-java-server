@@ -31,7 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 jwtUtil.validate(token);
 
                 // 3. 토큰에서 유저 식별자(userId)를 꺼냅니다.
-                Long userId = jwtUtil.getUserId(token);
+                String userIdString = String.valueOf(jwtUtil.getUserId(token));
+                Long userId = Long.parseLong(userIdString);
 
                 // 4. Spring Security가 인식할 수 있는 인증 객체를 생성합니다.
                 // 현재는 권한 정보가 없으므로 빈 리스트를 전달합니다.

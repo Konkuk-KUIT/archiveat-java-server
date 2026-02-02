@@ -15,6 +15,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
     List<UserNewsletter> findAllByUserId(Long userId);
 
     int deleteByIdAndUser_Id(Long id, Long userId);
+
     Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
 
     // 주간 리포트: 기간 내 저장된 뉴스레터
@@ -26,4 +27,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
     // 최근 읽은 뉴스레터 목록 (정렬)
     List<UserNewsletter> findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(Long userId);
+
+    // Newsletter에 연결된 모든 UserNewsletter 조회 (Label 업데이트용)
+    List<UserNewsletter> findAllByNewsletter_Id(Long newsletterId);
 }
