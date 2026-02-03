@@ -4,6 +4,7 @@ import com.archiveat.server.domain.newsletter.dto.response.*;
 import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
+import com.archiveat.server.domain.newsletter.event.NewsletterProcessRequestedEvent;
 import com.archiveat.server.domain.newsletter.repository.DomainRepository;
 import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -76,7 +78,7 @@ public class NewsletterService {
                 newsletter.getTopic(), // topicName
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                label, // label 계산됨!
+                label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
                 summaryBlocks);
@@ -128,7 +130,7 @@ public class NewsletterService {
                 newsletter.getTopic(), // topicName
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
-                label, // label 계산됨!
+                label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
                 summaryBlocks);
@@ -157,7 +159,8 @@ public class NewsletterService {
         // 비동기 작업 시작 (트랜잭션 커밋 후 실행)
         // @Async 메서드는 별도 스레드에서 실행되므로 즉시 반환됩니다
         Long newsletterId = newsletter.getId();
-        processNewsletterAsync(newsletterId, contentUrl);
+        // processNewsletterAsync(newsletterId, contentUrl);
+        applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
 
         return new GenerateNewsletterResponse(
                 userNewsletter.getId(),
@@ -170,7 +173,6 @@ public class NewsletterService {
      * 백그라운드에서 실행되며, Python 서버 호출 및 DB 업데이트를 담당합니다.
      * 처리 시간: 5-10초 (YouTube 데이터 추출 + Gemini LLM 요약)
      */
-    @Async("taskExecutor")
     public void processNewsletterAsync(Long newsletterId, String contentUrl) {
         log.info("Starting async newsletter processing for ID: {}", newsletterId);
         long startTime = System.currentTimeMillis();
@@ -203,7 +205,7 @@ public class NewsletterService {
                 throw new IllegalArgumentException("Unsupported domain type: " + domainType);
             }
 
-            PythonSummaryResponse response = future.get(); // 블로킹 대기 (백그라운드 스레드이므로 OK)
+            PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES); // 블로킹 대기 (백그라운드 스레드이므로 OK)
 
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
@@ -224,6 +226,7 @@ public class NewsletterService {
                 if (newsletter != null) {
                     String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
                     newsletter.setErrorMessage(errorMsg);
+                    newsletter.updateLlmStatus(LlmStatus.FAILED);
                     newsletterRepository.save(newsletter);
                 }
             } catch (Exception saveError) {

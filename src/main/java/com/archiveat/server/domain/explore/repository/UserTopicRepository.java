@@ -5,6 +5,7 @@ import com.archiveat.server.global.common.constant.PerspectiveType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -21,5 +22,6 @@ public interface UserTopicRepository extends JpaRepository<UserTopic, Long> {
             "JOIN ut.topic t " +
             "WHERE ut.user.id = :userId " +
             "AND ut.perspectiveType = :perspectiveType")
-    List<String> findCategoryNamesByUserIdAndPerspectiveType(Long userId, PerspectiveType perspectiveType);
+    List<String> findCategoryNamesByUserIdAndPerspectiveType(@Param("userId") Long userId,
+            @Param("perspectiveType") PerspectiveType perspectiveType);
 }

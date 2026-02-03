@@ -29,7 +29,7 @@ public class PythonSummaryResponse {
         @JsonProperty("thumbnail_url")
         private String thumbnailUrl;
 
-        @JsonProperty(" content_url")
+        @JsonProperty("content_url")
         private String contentUrl;
 
         private String channel;
