@@ -1,10 +1,7 @@
 package com.archiveat.server.domain.explore.controller;
 
 import com.archiveat.server.domain.explore.dto.request.ClassificationRequest;
-import com.archiveat.server.domain.explore.dto.response.ClassificationResponse;
-import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
-import com.archiveat.server.domain.explore.dto.response.InboxResponse;
-import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
+import com.archiveat.server.domain.explore.dto.response.*;
 import com.archiveat.server.domain.explore.service.ExploreService;
 import com.archiveat.server.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,6 +72,21 @@ public class ExploreController {
             @RequestBody ClassificationRequest request
     ) {
         ClassificationResponse response = exploreService.updateInboxClassification(userId, userNewsletterId, request);
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * [인박스 수정 화면 정보 조회]
+     * 인박스 수정 화면 진입 시 필요한 현재 설정 값과 전체 카테고리/토픽 리스트를 반환합니다.
+     */
+    @Operation(summary = "인박스 수정 화면 정보 조회", description = "수정 화면 진입 시 필요한 현재 설정 값과 전체 카테고리/토픽 리스트를 반환합니다.")
+    @GetMapping("/inbox/{userNewsletterId}")
+    public ApiResponse<InboxEditResponse> getInboxEditData(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long userNewsletterId
+    ) {
+        InboxEditResponse response = exploreService.getInboxEditData(userId, userNewsletterId);
 
         return ApiResponse.ok(response);
     }

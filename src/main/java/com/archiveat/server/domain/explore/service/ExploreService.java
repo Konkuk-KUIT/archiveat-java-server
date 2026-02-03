@@ -1,10 +1,7 @@
 package com.archiveat.server.domain.explore.service;
 
 import com.archiveat.server.domain.explore.dto.request.ClassificationRequest;
-import com.archiveat.server.domain.explore.dto.response.ClassificationResponse;
-import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
-import com.archiveat.server.domain.explore.dto.response.InboxResponse;
-import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
+import com.archiveat.server.domain.explore.dto.response.*;
 import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.explore.repository.CategoryRepository;
@@ -171,8 +168,6 @@ public class ExploreService {
     @Transactional
     public ClassificationResponse updateInboxClassification(Long userId, Long userNewsletterId, ClassificationRequest request) {
         // 1. 수정하려는 인박스 아이템(UserNewsletter)을 조회합니다.
-        // [Insight] 존재하지 않거나, 다른 사용자의 데이터를 수정하려는 시도를 방지하기 위해
-        // findById와 더불어 소유권 확인 로직이 필요합니다. (여기서는 findById 후 검증하거나 전용 query를 쓸 수 있습니다.)
         UserNewsletter userNewsletter = userNewsletterRepository.findById(userNewsletterId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
@@ -181,8 +176,6 @@ public class ExploreService {
         }
 
         // 2. 요청된 ID를 기반으로 카테고리와 토픽 정보를 DB에서 조회합니다.
-        // [Reason] Newsletter 엔티티는 카테고리/토픽을 String으로 관리하므로,
-        // ID에 해당하는 실제 이름을 가져와서 엔티티에 동기화해줘야 합니다.
         Category category = categoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
 
@@ -190,12 +183,9 @@ public class ExploreService {
                 .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
 
         // 3. 엔티티 상태를 업데이트합니다. (도메인 메서드 활용)
-        // [Insight] 서비스 계층에서 setter를 호출하는 대신, 엔티ti 내부의 비즈니스 메서드(updateClassification)를 호출하여
-        // 데이터 변경의 응집도를 높이고 '완전무결'한 객체 상태를 유지합니다.
         userNewsletter.updateClassification(request.memo());
 
         // 4. 원본 Newsletter의 분류 정보도 사용자가 수정한 값으로 동기화합니다.
-        // [Reason] 사용자가 AI의 분석 결과를 교정한 것이므로, 원본 데이터에도 이를 반영하는 것이 정석입니다.
         Newsletter newsletter = userNewsletter.getNewsletter();
         newsletter.updateCategoryAndTopic(category.getName(), topic.getName());
 
@@ -212,6 +202,52 @@ public class ExploreService {
                 .modifiedAt(userNewsletter.getModifiedAt()
                         .atZone(java.time.ZoneId.systemDefault())
                         .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public InboxEditResponse getInboxEditData(Long userId, Long userNewsletterId) {
+        // 1. 인박스 아이템 조회 및 소유권 검증
+        UserNewsletter userNewsletter = userNewsletterRepository.findById(userNewsletterId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
+
+        if (!userNewsletter.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.USER_NEWSLETTER_NOT_AUTHORIZED);
+        }
+
+        Newsletter newsletter = userNewsletter.getNewsletter();
+
+        // 2. 현재 설정된 카테고리/토픽의 ID 조회 (String -> Long)
+        Long currentCategoryId = categoryRepository.findByName(newsletter.getCategory())
+                .map(Category::getId)
+                .orElse(null);
+
+        Long currentTopicId = topicRepository.findByName(newsletter.getTopic())
+                .map(Topic::getId)
+                .orElse(null);
+
+        // 3. 현재 정보 DTO 조립
+        InboxEditResponse.CurrentInfoDto currentInfo = InboxEditResponse.CurrentInfoDto.builder()
+                .userNewsletterId(userNewsletter.getId())
+                .categoryId(currentCategoryId)
+                .topicId(currentTopicId)
+                .memo(userNewsletter.getMemo())
+                .build();
+
+        // 4. 전체 선택지 목록 조회
+        List<InboxEditResponse.CategoryDto> categories = categoryRepository.findAll().stream()
+                .map(c -> new InboxEditResponse.CategoryDto(c.getId(), c.getName()))
+                .collect(Collectors.toList());
+
+        List<InboxEditResponse.TopicDto> topics = topicRepository.findAll().stream()
+                .map(t -> new InboxEditResponse.TopicDto(t.getId(), t.getCategory().getId(), t.getName()))
+                .collect(Collectors.toList());
+
+        // 5. 최종 응답 조립
+        return InboxEditResponse.builder()
+                .current(currentInfo)
+                .categories(categories)
+                .topics(topics)
                 .build();
     }
 
