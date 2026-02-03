@@ -91,4 +91,18 @@ public class ExploreController {
         return ApiResponse.ok(response);
     }
 
+    /**
+     * [인박스 일괄 읽음 처리]
+     * 인박스 진입 시 모든 미확정 뉴스레터를 일괄적으로 확정 상태(isConfirmed=true)로 변경합니다.
+     */
+    @Operation(summary = "인박스 일괄 읽음 처리", description = "인박스 진입 시 모든 미확정 뉴스레터를 일괄적으로 확정 상태(isConfirmed=true)로 변경합니다.")
+    @PatchMapping("/inbox/confirmation")
+    public ApiResponse<Void> confirmAllInbox(
+            @AuthenticationPrincipal Long userId
+    ) {
+        exploreService.confirmAllInbox(userId);
+
+        return ApiResponse.ok(null);
+    }
+
 }

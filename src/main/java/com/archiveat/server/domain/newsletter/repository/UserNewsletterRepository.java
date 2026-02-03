@@ -1,9 +1,11 @@
 package com.archiveat.server.domain.newsletter.repository;
 
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
+import com.archiveat.server.global.common.constant.LlmStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -69,4 +71,18 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
             "WHERE un.user.id = :userId AND un.isConfirmed = false " +
             "ORDER BY un.createdAt DESC")
     List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);
+
+    /**
+     * 특정 유저의 인박스 아이템들을 일괄 확인 처리
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE UserNewsletter un SET un.isConfirmed = true, un.confirmedAt = :now " +
+            "WHERE un.user.id = :userId " +
+            "AND un.isConfirmed = false " +
+            "AND un.newsletter.llmStatus = :status") // [Insight] 서브쿼리 없이 직접 참조 가능
+    void bulkConfirmByUserId(
+            @Param("userId") Long userId,
+            @Param("now") LocalDateTime now,
+            @Param("status") LlmStatus status // [Reason] 하드코딩 방지 및 타입 안정성 확보
+    );
 }
