@@ -4,7 +4,7 @@ import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
 import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
 import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
-import com.archiveat.server.domain.explore.repository.SampleCategoryRepository;
+import com.archiveat.server.domain.explore.repository.CategoryRepository;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ExploreService {
 
-    private final SampleCategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
     private final UserNewsletterRepository userNewsletterRepository;
     private final TopicRepository topicRepository;
 
@@ -36,8 +36,8 @@ public class ExploreService {
         Map<Long, Long> topicCountMap = userNewsletterRepository.countNewslettersByTopicForUser(userId)
                 .stream()
                 .collect(Collectors.toMap(
-                        obj -> (Long) obj[0],
-                        obj -> (Long) obj[1]
+                        obj -> ((Number) obj[0]).longValue(), // topicId
+                        obj -> ((Number) obj[1]).longValue()  // newsletterCount
                 ));
 
         // 3. 전체 카테고리 및 토픽 구조 조회

@@ -34,7 +34,7 @@ public class ExploreController {
 
     /**
      * 특정 토픽에 속한 뉴스레터 목록을 페이징하여 조회합니다.
-     * * @param topicId 조회할 토픽의 식별자
+     * @param topicId 조회할 토픽의 식별자
      * @param pageable 페이징 파라미터 (page, size)
      */
     @GetMapping("/topic/{topicId}/user-newsletters")
