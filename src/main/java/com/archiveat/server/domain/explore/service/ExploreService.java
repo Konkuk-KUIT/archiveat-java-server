@@ -1,13 +1,16 @@
 package com.archiveat.server.domain.explore.service;
 
 import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
+import com.archiveat.server.domain.explore.dto.response.InboxResponse;
 import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
 import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.explore.repository.CategoryRepository;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
+import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
+import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -15,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -93,6 +97,71 @@ public class ExploreService {
                 newsletterSlice.hasNext(),
                 newsletters
         );
+    }
+
+    public InboxResponse getInbox(Long userId) {
+        // 1. User 객체가 아닌 userId를 사용하여 직접 조회합니다.
+        List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllInboxByUserId(userId);
+
+        // 2. 날짜별 그룹화 로직 (동일)
+        Map<String, List<UserNewsletter>> groupedByDate = userNewsletters.stream()
+                .collect(Collectors.groupingBy(
+                        un -> un.getCreatedAt().toLocalDate().toString(),
+                        Collectors.toList()
+                ));
+
+        // 3. DTO 변환 및 반환 (동일)
+        List<InboxResponse.InboxDateGroupDto> inboxGroups = groupedByDate.keySet().stream()
+                .sorted((d1, d2) -> d2.compareTo(d1))
+                .map(date -> InboxResponse.InboxDateGroupDto.builder()
+                        .date(date)
+                        .items(groupedByDate.get(date).stream()
+                                .map(this::convertToItemDto)
+                                .collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
+
+        return InboxResponse.builder()
+                .inbox(inboxGroups)
+                .build();
+    }
+
+    /**
+     * UserNewsletter 엔티티를 InboxItemDto(Record)로 변환합니다.
+     */
+    private InboxResponse.InboxItemDto convertToItemDto(UserNewsletter un) {
+        Newsletter n = un.getNewsletter();
+
+        // LLM 분석이 완료된 경우에만 카테고리/토픽 정보를 매칭합니다.
+        InboxResponse.CategoryDto categoryDto = null;
+        InboxResponse.TopicDto topicDto = null;
+
+        if (n.getLlmStatus() == LlmStatus.DONE) {
+            // Newsletter 엔티티에 저장된 문자열 이름을 바탕으로 ID를 조회합니다.
+            // (주의: 빈번한 조회가 발생할 경우 캐싱 처리가 필요할 수 있습니다.)
+            categoryDto = categoryRepository.findByName(n.getCategory())
+                    .map(c -> new InboxResponse.CategoryDto(c.getId(), c.getName()))
+                    .orElse(new InboxResponse.CategoryDto(null, null));
+
+            topicDto = topicRepository.findByName(n.getTopic())
+                    .map(t -> new InboxResponse.TopicDto(t.getId(), t.getName()))
+                    .orElse(new InboxResponse.TopicDto(null, null));
+        } else {
+            // 분석 중이거나 실패한 경우 spec에 따라 null로 채워진 객체를 반환합니다.
+            categoryDto = new InboxResponse.CategoryDto(null, null);
+            topicDto = new InboxResponse.TopicDto(null, null);
+        }
+
+        return InboxResponse.InboxItemDto.builder()
+                .userNewsletterId(un.getId())
+                .llmStatus(n.getLlmStatus())
+                .contentUrl(n.getContentUrl())
+                .title(n.getTitle())
+                .domainName(n.getDomain() != null ? n.getDomain().getName() : null)
+                .createdAt(un.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .category(categoryDto)
+                .topic(topicDto)
+                .build();
     }
 
 }

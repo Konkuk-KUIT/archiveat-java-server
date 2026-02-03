@@ -1,9 +1,11 @@
 package com.archiveat.server.domain.explore.controller;
 
 import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
+import com.archiveat.server.domain.explore.dto.response.InboxResponse;
 import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
 import com.archiveat.server.domain.explore.service.ExploreService;
 import com.archiveat.server.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -45,6 +47,20 @@ public class ExploreController {
     ) {
         TopicNewslettersResponse response = exploreService.getTopicNewsletters(userId, topicId, pageable);
 
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * [방금 담은 지식(INBOX) 조회]
+     * 사용자의 미확정 뉴스레터 목록을 날짜별로 그룹화하여 조회합니다.
+     */
+    @Operation(summary = "인박스(뉴스레터) 목록 조회", description = "사용자가 저장했고 아직 확인하지 않은 뉴스레터들을 날짜별로 묶어서 반환합니다.")
+    @GetMapping("/inbox")
+    public ApiResponse<InboxResponse> getInbox(
+            @AuthenticationPrincipal Long userId
+    ) {
+        // 기존 User 객체 대신 userId를 전달하도록 변경하여 컨벤션을 통일합니다.
+        InboxResponse response = exploreService.getInbox(userId);
         return ApiResponse.ok(response);
     }
 

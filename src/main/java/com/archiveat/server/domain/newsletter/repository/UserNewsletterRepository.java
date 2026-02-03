@@ -58,4 +58,15 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
             @Param("topicId") Long topicId,
             Pageable pageable
     );
+
+    /**
+     * 유저의 인박스 아이템(isConfirmed = false)을 최신순으로 조회
+     * Fetch Join을 사용하여 Newsletter와 그에 연결된 Domain 정보를 한 번에 로딩 (N+1 문제 방지)
+     */
+    @Query("SELECT un FROM UserNewsletter un " +
+            "JOIN FETCH un.newsletter n " +
+            "LEFT JOIN FETCH n.domain d " +
+            "WHERE un.user.id = :userId AND un.isConfirmed = false " +
+            "ORDER BY un.createdAt DESC")
+    List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);
 }
