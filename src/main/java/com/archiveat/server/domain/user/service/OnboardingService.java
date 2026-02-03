@@ -3,7 +3,7 @@ package com.archiveat.server.domain.user.service;
 import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.explore.entity.UserTopic;
-import com.archiveat.server.domain.explore.repository.SampleCategoryRepository;
+import com.archiveat.server.domain.explore.repository.CategoryRepository;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
 import com.archiveat.server.domain.explore.repository.UserTopicRepository;
 import com.archiveat.server.domain.user.dto.request.OnboardingInfoRequest;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @Service
 public class OnboardingService {
     private final UserRepository userRepository;
-    private final SampleCategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
     private final UserTopicRepository userTopicRepository; // 추가
     private final TopicRepository topicRepository;
 
