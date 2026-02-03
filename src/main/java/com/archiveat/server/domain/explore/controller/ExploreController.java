@@ -1,5 +1,7 @@
 package com.archiveat.server.domain.explore.controller;
 
+import com.archiveat.server.domain.explore.dto.request.ClassificationRequest;
+import com.archiveat.server.domain.explore.dto.response.ClassificationResponse;
 import com.archiveat.server.domain.explore.dto.response.ExploreResponse;
 import com.archiveat.server.domain.explore.dto.response.InboxResponse;
 import com.archiveat.server.domain.explore.dto.response.TopicNewslettersResponse;
@@ -10,10 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -61,6 +60,22 @@ public class ExploreController {
     ) {
         // 기존 User 객체 대신 userId를 전달하도록 변경하여 컨벤션을 통일합니다.
         InboxResponse response = exploreService.getInbox(userId);
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * [인박스 분류 수정 및 확정]
+     * 사용자가 인박스 아이템의 카테고리와 토픽을 확정하고 메모를 저장합니다.
+     */
+    @Operation(summary = "인박스 분류 수정 및 확정", description = "인박스 아이템의 카테고리와 토픽을 확정하고 메모를 저장합니다.")
+    @PatchMapping("/inbox/{userNewsletterId}/classification")
+    public ApiResponse<ClassificationResponse> updateInboxClassification(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long userNewsletterId,
+            @RequestBody ClassificationRequest request
+    ) {
+        ClassificationResponse response = exploreService.updateInboxClassification(userId, userNewsletterId, request);
+
         return ApiResponse.ok(response);
     }
 

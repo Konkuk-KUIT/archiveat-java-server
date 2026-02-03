@@ -127,4 +127,9 @@ public class Newsletter extends BaseEntity {
         // 상태를 DONE으로 변경
         this.llmStatus = LlmStatus.DONE;
     }
+
+    public void updateCategoryAndTopic(String category, String topic) {
+        this.category = category;
+        this.topic = topic;
+    }
 }

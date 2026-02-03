@@ -38,6 +38,7 @@ public class UserNewsletter extends BaseEntity {
     private boolean isRead;
     private boolean isConfirmed;
     private LocalDateTime lastViewedAt;
+    private LocalDateTime confirmedAt;
 
     public UserNewsletter(User user, Newsletter newsletter, String memo) {
         this.user = user;
@@ -51,6 +52,15 @@ public class UserNewsletter extends BaseEntity {
 
     public static UserNewsletter create(User user, Newsletter newsletter, String memo) {
         return new UserNewsletter(user, newsletter, memo);
+    }
+
+    /**
+     * 분류 정보 및 메모 업데이트
+     */
+    public void updateClassification(String memo) {
+        this.memo = memo;
+        this.isConfirmed = true;
+        this.confirmedAt = LocalDateTime.now();
     }
 
     public void updateIsRead() {
