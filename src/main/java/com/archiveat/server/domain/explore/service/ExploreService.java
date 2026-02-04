@@ -184,6 +184,11 @@ public class ExploreService {
         Topic topic = topicRepository.findById(request.topicId())
                 .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
 
+        // Topic 엔티티가 가진 Category의 ID와 요청받은 Category ID가 일치하는지 확인
+        if (!topic.getCategory().getId().equals(category.getId())) {
+            throw new CustomException(ErrorCode.INVALID_TOPIC_CATEGORY_MATCH);
+        }
+
         // 3. 엔티티 상태를 업데이트합니다. (도메인 메서드 활용)
         userNewsletter.updateClassification(request.memo());
 
@@ -257,7 +262,7 @@ public class ExploreService {
     public void confirmAllInbox(Long userId) {
         userNewsletterRepository.bulkConfirmByUserId(
                 userId,
-                LocalDateTime.now(),
+                LocalDateTime.now(APP_ZONE),
                 LlmStatus.DONE
         );
     }

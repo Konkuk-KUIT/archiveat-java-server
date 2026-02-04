@@ -20,6 +20,9 @@ public enum ErrorCode {
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, 40411, "존재하지 않는 카테고리입니다."),
     TOPIC_NOT_FOUND(HttpStatus.NOT_FOUND, 40412, "존재하지 않는 토픽입니다."),
 
+    // Topic and Category
+    INVALID_TOPIC_CATEGORY_MATCH(HttpStatus.BAD_REQUEST, 40010, "선택한 토픽이 해당 카테고리에 속하지 않습니다."),
+
     // Collection
     COLLECTION_NOT_FOUND(HttpStatus.NOT_FOUND, 40401, "컬렉션을 찾을 수 없습니다.");
 
