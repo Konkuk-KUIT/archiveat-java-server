@@ -9,7 +9,6 @@ import com.archiveat.server.domain.explore.repository.TopicRepository;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
-import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.response.ErrorCode;
 import com.archiveat.server.global.exception.CustomException;
@@ -24,6 +23,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static com.archiveat.server.global.common.constant.DateTimeConstant.*;
 
 @Service
 @RequiredArgsConstructor
@@ -160,7 +161,7 @@ public class ExploreService {
                 .contentUrl(n.getContentUrl())
                 .title(n.getTitle())
                 .domainName(n.getDomain() != null ? n.getDomain().getName() : null)
-                .createdAt(un.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .createdAt(un.getCreatedAt().atZone(APP_ZONE).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .category(categoryDto)
                 .topic(topicDto)
                 .build();
@@ -198,10 +199,10 @@ public class ExploreService {
                 .topic(new ClassificationResponse.TopicDto(topic.getId(), topic.getName()))
                 .memo(userNewsletter.getMemo())
                 .classificationConfirmedAt(userNewsletter.getConfirmedAt()
-                        .atZone(java.time.ZoneId.systemDefault())
+                        .atZone(APP_ZONE)
                         .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .modifiedAt(userNewsletter.getModifiedAt()
-                        .atZone(java.time.ZoneId.systemDefault())
+                        .atZone(APP_ZONE)
                         .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .build();
     }
