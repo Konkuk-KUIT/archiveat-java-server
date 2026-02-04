@@ -119,7 +119,7 @@ public class ExploreService {
         // 3. 날짜별 그룹화 및 DTO 변환
         Map<String, List<UserNewsletter>> groupedByDate = userNewsletters.stream()
                 .collect(Collectors.groupingBy(
-                        un -> un.getCreatedAt().toLocalDate().toString(),
+                        un -> un.getCreatedAt().atZone(APP_ZONE).toLocalDate().toString(),
                         Collectors.toList()
                 ));
 
