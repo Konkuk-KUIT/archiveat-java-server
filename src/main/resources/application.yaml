@@ -28,7 +28,7 @@ python:
       response: 600000  # 600초 (10분 - LLM 처리 + Whisper STT 시간 고려)
 
 jwt:
-  secret: "change-this-to-a-very-long-secret-key-at-least-32-bytes!"
+  secret: ${JWT_SECRET:change-this-to-a-very-long-secret-key-at-least-32-bytes!}
   issuer: "archiveat"
   access-token-expiration-ms: 3600000  # 1시간
   refresh-token-expiration-ms: 1209600000   #14일
@@ -39,3 +39,4 @@ springdoc:
     path: /archiveat-docs  #localhost:8080/archiveat-docs로 접속
 
     doc-expansion: none    # none: 다 접힘(깔끔), list: 다 펼침(기본값)
+
