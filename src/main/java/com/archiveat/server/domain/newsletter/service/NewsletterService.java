@@ -195,8 +195,11 @@ public class NewsletterService {
             if (domainType.isYouTube()) {
                 // YouTube 영상 처리
                 future = pythonClientService.requestYouTubeSummary(contentUrl);
-            } else if (domainType.needsWebCrawling()) {
-                // 네이버 뉴스, 티스토리, 브런치, 일반 웹 크롤링
+            } else if(domainType.isTistory()){
+                future = pythonClientService.requestTistorySummary(contentUrl, null);
+            }
+            else if (domainType.needsWebCrawling()) {
+                // 네이버 뉴스, 브런치, 일반 웹 크롤링
                 // user memo는 UserNewsletter에서 가져와야 하지만,
                 // 현재는 Newsletter만 전달받으므로 null 처리
                 // TODO: 필요시 UserNewsletter의 memo도 함께 전달
@@ -298,8 +301,8 @@ public class NewsletterService {
         if (host.contains("brunch.co.kr")) {
             return "Brunch";
         }
-        if (host.contains("news.naver.com")) {
-            return "Naver News";
+        if (host.contains("naver.com")) {
+            return "Naver";
         }
         if (host.contains("tistory.com")) {
             return "tistory";

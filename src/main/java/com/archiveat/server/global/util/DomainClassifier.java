@@ -115,6 +115,11 @@ public class DomainClassifier {
         }
 
         /**
+         * 티스토리인지 확인
+         */
+        public boolean isTistory() {return this == TISTORY;}
+
+        /**
          * 웹 크롤링이 필요한 타입인지 확인
          * (티스토리, 브런치, 네이버 뉴스, 일반 웹)
          */
