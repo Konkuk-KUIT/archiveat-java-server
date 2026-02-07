@@ -26,3 +26,5 @@ services:
       PYTHON_SERVER_URL: ${PYTHON_SERVER_URL}
       JWT_SECRET: ${JWT_SECRET}
 
+volumes:
+  pgdata:
