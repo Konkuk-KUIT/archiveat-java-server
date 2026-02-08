@@ -1,0 +1,9 @@
+# Sentry configuration
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:development}
+  traces-sample-rate: 1.0
+  enable-tracing: true
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
