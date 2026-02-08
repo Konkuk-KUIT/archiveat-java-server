@@ -19,6 +19,16 @@ spring:
         core-size: 5
         max-size: 10
         queue-capacity: 25
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 10
+          min-idle: 2
 
 python:
   server:
@@ -28,7 +38,7 @@ python:
       response: 600000  # 600초 (10분 - LLM 처리 + Whisper STT 시간 고려)
 
 jwt:
-  secret: "change-this-to-a-very-long-secret-key-at-least-32-bytes!"
+  secret: ${JWT_SECRET}
   issuer: "archiveat"
   access-token-expiration-ms: 3600000  # 1시간
   refresh-token-expiration-ms: 1209600000   #14일
@@ -39,3 +49,4 @@ springdoc:
     path: /archiveat-docs  #localhost:8080/archiveat-docs로 접속
 
     doc-expansion: none    # none: 다 접힘(깔끔), list: 다 펼침(기본값)
+

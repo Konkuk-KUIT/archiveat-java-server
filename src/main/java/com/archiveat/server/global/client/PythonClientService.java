@@ -134,6 +134,38 @@ public class PythonClientService {
                                 .toFuture();
         }
 
+    /**
+     * 네이버 뉴스 또는 일반 웹 콘텐츠 요약 요청
+     *
+     * @param url      네이버 뉴스 또는 일반 웹 URL
+     * @param userMemo 사용자 메모 (분류 우선순위에 활용, 선택사항)
+     * @return CompletableFuture<PythonSummaryResponse> 비동기 응답
+     */
+    public CompletableFuture<PythonSummaryResponse> requestTistorySummary(String url, String userMemo) {
+        log.info("Requesting Tistory summary from Python server: {}", url);
+        if (userMemo != null && !userMemo.isEmpty()) {
+            log.info("User memo provided: {}", userMemo);
+        }
+
+        SummarizeNaverNewsRequest request = new SummarizeNaverNewsRequest(url, userMemo);
+
+        return pythonWebClient.post()
+                .uri("/api/v1/summarize/tistory")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(PythonSummaryResponse.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                        .maxBackoff(Duration.ofSeconds(5))
+                        .filter(throwable -> !(throwable instanceof WebClientResponseException.BadRequest)))
+                .doOnSuccess(response -> log
+                        .info("Successfully received Tistory summary from Python server: {}",
+                                url))
+                .doOnError(error -> log.error("Failed to get Tistory summary from Python server: {}",
+                        url,
+                        error))
+                .toFuture();
+    }
+
         // 내부 DTO
         private record GenericSummaryRequest(String title, String content) {
         }

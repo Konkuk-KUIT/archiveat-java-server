@@ -12,12 +12,13 @@ import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.global.lock.DistributedLockService;
 import com.archiveat.server.global.util.DomainClassifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +40,9 @@ public class NewsletterService {
     private final PythonClientService pythonClientService;
     private final com.archiveat.server.domain.explore.repository.UserTopicRepository userTopicRepository;
 
-    private final ApplicationEventPublisher applicationEventPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher; // Event 발행
+    private final DistributedLockService distributedLockService;
+    private final CacheManager cacheManager;
 
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
@@ -137,11 +140,16 @@ public class NewsletterService {
     }
 
     /**
-     * Newsletter 생성 엔드포인트 (비동기 패턴)
+     * Newsletter 생성 엔드포인트 (Event 기반 비동기 패턴)
      * 
      * 1. Newsletter를 PENDING 상태로 DB에 저장
-     * 2. 즉시 클라이언트에 응답 반환 (PENDING 상태)
-     * 3. 백그라운드에서 비동기 작업 시작 (processNewsletterAsync)
+     * 2. 이벤트 발행 (트랜잭션 커밋 후 EventListener가 Redis Queue에 추가)
+     * 3. 즉시 클라이언트에 응답 반환 (PENDING 상태)
+     * 4. Worker가 큐에서 작업을 가져가 비동기 처리
+     * 
+     * ⭐ 트랜잭션 문제 해결:
+     * - @Transactional 안에서 직접 큐에 넣으면 커밋 전까지 Redis에 반영 안 됨
+     * - Event + @TransactionalEventListener(AFTER_COMMIT)로 분리하여 해결
      */
     @Transactional
     public GenerateNewsletterResponse generateNewsletter(Long userId, String contentUrl, String memo) {
@@ -156,11 +164,11 @@ public class NewsletterService {
         UserNewsletter userNewsletter = userNewsletterRepository.save(
                 UserNewsletter.create(user, newsletter, memo));
 
-        // 비동기 작업 시작 (트랜잭션 커밋 후 실행)
-        // @Async 메서드는 별도 스레드에서 실행되므로 즉시 반환됩니다
+        // 이벤트 발행 (EventListener가 트랜잭션 커밋 후 큐에 추가)
         Long newsletterId = newsletter.getId();
-        // processNewsletterAsync(newsletterId, contentUrl);
-        applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
+        applicationEventPublisher.publishEvent(
+                new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
+        log.info("Newsletter event published: newsletterId={}", newsletterId);
 
         return new GenerateNewsletterResponse(
                 userNewsletter.getId(),
@@ -168,19 +176,35 @@ public class NewsletterService {
     }
 
     /**
-     * Newsletter 비동기 처리 메서드
+     * Newsletter 비동기 처리 메서드 (분산 락 + 캐시 무효화 적용)
      * 
-     * 백그라운드에서 실행되며, Python 서버 호출 및 DB 업데이트를 담당합니다.
+     * Worker에서 호출되며, Python 서버 호출 및 DB 업데이트를 담당합니다.
      * 처리 시간: 5-10초 (YouTube 데이터 추출 + Gemini LLM 요약)
      */
     public void processNewsletterAsync(Long newsletterId, String contentUrl) {
         log.info("Starting async newsletter processing for ID: {}", newsletterId);
         long startTime = System.currentTimeMillis();
 
+        // 분산 락 키 생성
+        String lockKey = "newsletter:lock:" + contentUrl.hashCode();
+
+        // 분산 락 획득 시도 (Watchdog 활성화, leaseTime = -1)
+        if (!distributedLockService.tryLock(lockKey, 1)) {
+            log.warn("Failed to acquire lock for newsletter {}, another process may be working on it", newsletterId);
+            return; // 다른 프로세스가 이미 처리 중이므로 종료
+        }
+
         try {
             // 1. Newsletter 상태를 RUNNING으로 업데이트
             Newsletter newsletter = newsletterRepository.findById(newsletterId)
                     .orElseThrow(() -> new IllegalArgumentException("Newsletter not found: " + newsletterId));
+
+            // 이미 처리 완료된 경우 스킵
+            if (newsletter.getLlmStatus() == LlmStatus.DONE) {
+                log.info("Newsletter {} already processed, skipping", newsletterId);
+                return;
+            }
+
             newsletter.updateLlmStatus(LlmStatus.RUNNING);
             newsletterRepository.save(newsletter);
             log.info("Newsletter {} status updated to RUNNING", newsletterId);
@@ -193,25 +217,25 @@ public class NewsletterService {
             CompletableFuture<PythonSummaryResponse> future;
 
             if (domainType.isYouTube()) {
-                // YouTube 영상 처리
                 future = pythonClientService.requestYouTubeSummary(contentUrl);
+            } else if (domainType.isTistory()) {
+                future = pythonClientService.requestTistorySummary(contentUrl, null);
             } else if (domainType.needsWebCrawling()) {
-                // 네이버 뉴스, 티스토리, 브런치, 일반 웹 크롤링
-                // user memo는 UserNewsletter에서 가져와야 하지만,
-                // 현재는 Newsletter만 전달받으므로 null 처리
-                // TODO: 필요시 UserNewsletter의 memo도 함께 전달
                 future = pythonClientService.requestNaverNewsSummary(contentUrl, null);
             } else {
                 throw new IllegalArgumentException("Unsupported domain type: " + domainType);
             }
 
-            PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES); // 블로킹 대기 (백그라운드 스레드이므로 OK)
+            PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES);
 
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
 
-            // 5. 이 Newsletter를 사용하는 모든 UserNewsletter의 label 구성 요소 업데이트
+            // 5. 캐시 무효화 (Stale Cache 방지) ⭐
+            evictNewsletterCache(newsletterId, contentUrl);
+
+            // 6. 이 Newsletter를 사용하는 모든 UserNewsletter의 label 구성 요소 업데이트
             updateLabelComponentsForAllUsers(newsletter);
 
             long duration = System.currentTimeMillis() - startTime;
@@ -228,6 +252,9 @@ public class NewsletterService {
                     newsletter.setErrorMessage(errorMsg);
                     newsletter.updateLlmStatus(LlmStatus.FAILED);
                     newsletterRepository.save(newsletter);
+
+                    // 실패 시에도 캐시 무효화
+                    evictNewsletterCache(newsletterId, contentUrl);
                 }
             } catch (Exception saveError) {
                 log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
@@ -235,6 +262,13 @@ public class NewsletterService {
 
             long duration = System.currentTimeMillis() - startTime;
             log.error("Newsletter {} processing failed after {}ms", newsletterId, duration);
+
+            // 예외를 다시 던져서 Worker가 재시도/DLQ 처리할 수 있게 함
+            throw new RuntimeException("Newsletter processing failed", e);
+
+        } finally {
+            // 분산 락 해제
+            distributedLockService.unlock(lockKey);
         }
     }
 
@@ -298,8 +332,8 @@ public class NewsletterService {
         if (host.contains("brunch.co.kr")) {
             return "Brunch";
         }
-        if (host.contains("news.naver.com")) {
-            return "Naver News";
+        if (host.contains("naver.com")) {
+            return "Naver";
         }
         if (host.contains("tistory.com")) {
             return "tistory";
@@ -361,5 +395,21 @@ public class NewsletterService {
         return nowCategories.contains(categoryName)
                 ? com.archiveat.server.global.common.constant.PerspectiveType.NOW
                 : com.archiveat.server.global.common.constant.PerspectiveType.FUTURE;
+    }
+
+    /**
+     * Newsletter 캐시 무효화
+     * Python 작업 완료 후 stale cache 방지
+     */
+    private void evictNewsletterCache(Long newsletterId, String contentUrl) {
+        try {
+            if (cacheManager.getCache("newsletter") != null) {
+                cacheManager.getCache("newsletter").evict(newsletterId);
+                cacheManager.getCache("newsletter").evict("url::" + contentUrl);
+                log.debug("Evicted newsletter cache: id={}, url={}", newsletterId, contentUrl);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to evict cache for newsletter {}", newsletterId, e);
+        }
     }
 }
