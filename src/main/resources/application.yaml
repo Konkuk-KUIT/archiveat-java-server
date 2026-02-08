@@ -21,7 +21,7 @@ spring:
         queue-capacity: 25
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
       # password: ${REDIS_PASSWORD:}
       lettuce:

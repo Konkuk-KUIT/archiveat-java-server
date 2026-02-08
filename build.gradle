@@ -57,6 +57,10 @@ dependencies {
 
 	// Redisson for distributed lock
 	implementation 'org.redisson:redisson-spring-boot-starter:3.27.0'
+
+	// Sentry for error monitoring
+	implementation 'io.sentry:sentry-spring-boot-starter:6.34.0'
+	implementation 'io.sentry:sentry-logback:6.34.0'
 }
 
 tasks.named('test') {
