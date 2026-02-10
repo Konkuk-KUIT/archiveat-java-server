@@ -15,7 +15,8 @@ public class Domain {
     @Column(nullable = false, unique = true)
     private String name; // Youtube, Naver News, Branch ...
 
-    public Domain(String name){
+    @Builder
+    public Domain(String name) {
         this.name = name;
     }
 }
