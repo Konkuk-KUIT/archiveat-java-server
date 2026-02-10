@@ -170,6 +170,16 @@ public class NewsletterService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 중복 URL 체크: 해당 사용자가 이미 이 URL을 저장했는지 확인
+        newsletterRepository.findByContentUrl(contentUrl)
+                .ifPresent(existingNewsletter -> {
+                    boolean alreadyExists = userNewsletterRepository
+                            .existsByUserAndNewsletter(user, existingNewsletter);
+                    if (alreadyExists) {
+                        throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+                    }
+                });
+
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
                 .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
 
@@ -240,7 +250,19 @@ public class NewsletterService {
                         "Unsupported domain type: " + domainType);
             }
 
-            PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES);
+            // Python 서버 호출 및 크롤링 실패 처리
+            PythonSummaryResponse response;
+            try {
+                response = future.get(10, TimeUnit.MINUTES);
+            } catch (java.util.concurrent.TimeoutException e) {
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            } catch (java.util.concurrent.ExecutionException e) {
+                log.error("Python server execution failed: {}", e.getCause().getMessage(), e);
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            }
 
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
