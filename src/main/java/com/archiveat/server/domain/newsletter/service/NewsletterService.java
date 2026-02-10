@@ -283,6 +283,7 @@ public class NewsletterService {
     /**
      * Newsletter 처리 실패 시 상태를 FAILED로 저장하고 캐시 무효화
      */
+    @Transactional
     private void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
         try {
             Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
