@@ -180,7 +180,6 @@ class ExploreServiceTest {
         InboxResponse response = exploreService.getInbox(userId);
 
         // then
-        // [Reason] InboxResponse는 'inbox'라는 필드명으로 그룹화된 데이터를 관리합니다.
         assertThat(response.inbox()).hasSize(2);
         assertThat(response.inbox().getFirst().date()).isEqualTo("2024-01-21"); // 최신순 정렬 확인
     }
@@ -273,7 +272,7 @@ class ExploreServiceTest {
         ClassificationResponse response = exploreService.updateInboxClassification(userId, 100L, request);
 
         // then
-        // [Reason] verify를 사용해 엔티티 내부의 수정 메서드들이 실제로 호출되었는지 검증합니다.
+        // verify를 사용해 엔티티 내부의 수정 메서드들이 실제로 호출되었는지 검증
         verify(mockUn).updateClassification("메모 수정");
         verify(mockN).updateCategoryAndTopic("경제", "주식");
         assertThat(response.category().name()).isEqualTo("경제");
