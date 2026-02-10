@@ -8,11 +8,16 @@ import com.archiveat.server.domain.newsletter.event.NewsletterProcessRequestedEv
 import com.archiveat.server.domain.newsletter.repository.DomainRepository;
 import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
+import com.archiveat.server.domain.newsletter.util.LabelFormatter;
+import com.archiveat.server.domain.explore.repository.UserTopicRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.global.common.response.ErrorCode;
+import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.lock.DistributedLockService;
+import com.archiveat.server.global.security.TokenHashUtil;
 import com.archiveat.server.global.util.DomainClassifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +26,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.archiveat.server.global.common.constant.DepthType;
+import com.archiveat.server.global.common.constant.PerspectiveType;
 
 import java.net.URI;
 import java.util.List;
@@ -33,22 +40,26 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @Service
 public class NewsletterService {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private final NewsletterRepository newsletterRepository;
     private final UserNewsletterRepository userNewsletterRepository;
     private final UserRepository userRepository;
     private final DomainRepository domainRepository;
     private final PythonClientService pythonClientService;
-    private final com.archiveat.server.domain.explore.repository.UserTopicRepository userTopicRepository;
+    private final UserTopicRepository userTopicRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher; // Event 발행
     private final DistributedLockService distributedLockService;
+    private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
 
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
         int deleted = userNewsletterRepository.deleteByIdAndUser_Id(userNewsletterId, userId);
         if (deleted == 0) {
-            // TODO throw new NewsletterNotFoundException
+            // 보안: 존재 여부와 권한 여부를 구분하지 않고 404로 통일
+            throw new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND);
         }
         return new DeleteNewsletterResponse(userNewsletterId);
     }
@@ -57,7 +68,8 @@ public class NewsletterService {
     public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
@@ -71,7 +83,7 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = parseNewsletterSummary(newsletter.getNewsletterSummary());
 
         // Label 계산: UserNewsletter에 저장된 perspectiveType + depthType 조합
-        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+        String label = LabelFormatter.formatLabel(
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
@@ -96,10 +108,9 @@ public class NewsletterService {
         }
 
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(
+            return objectMapper.readValue(
                     newsletterSummaryJson,
-                    mapper.getTypeFactory().constructCollectionType(List.class, NewsletterSummaryBlock.class));
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, NewsletterSummaryBlock.class));
         } catch (Exception e) {
             // 파싱 실패 시 빈 리스트 반환
             return List.of();
@@ -110,7 +121,8 @@ public class NewsletterService {
     public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
@@ -123,7 +135,7 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         // Label 계산
-        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+        String label = LabelFormatter.formatLabel(
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
@@ -147,7 +159,7 @@ public class NewsletterService {
      * 3. 즉시 클라이언트에 응답 반환 (PENDING 상태)
      * 4. Worker가 큐에서 작업을 가져가 비동기 처리
      * 
-     * ⭐ 트랜잭션 문제 해결:
+     * 트랜잭션 문제 해결:
      * - @Transactional 안에서 직접 큐에 넣으면 커밋 전까지 Redis에 반영 안 됨
      * - Event + @TransactionalEventListener(AFTER_COMMIT)로 분리하여 해결
      */
@@ -156,7 +168,7 @@ public class NewsletterService {
         Domain domain = resolveDomainFromUrl(contentUrl);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
                 .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
@@ -185,8 +197,8 @@ public class NewsletterService {
         log.info("Starting async newsletter processing for ID: {}", newsletterId);
         long startTime = System.currentTimeMillis();
 
-        // 분산 락 키 생성
-        String lockKey = "newsletter:lock:" + contentUrl.hashCode();
+        // 분산 락 키 생성 (SHA-256 해시로 충돌 방지)
+        String lockKey = "newsletter:lock:" + tokenHashUtil.sha256Hex(contentUrl);
 
         // 분산 락 획득 시도 (Watchdog 활성화, leaseTime = -1)
         if (!distributedLockService.tryLock(lockKey, 1)) {
@@ -197,7 +209,7 @@ public class NewsletterService {
         try {
             // 1. Newsletter 상태를 RUNNING으로 업데이트
             Newsletter newsletter = newsletterRepository.findById(newsletterId)
-                    .orElseThrow(() -> new IllegalArgumentException("Newsletter not found: " + newsletterId));
+                    .orElseThrow(() -> new CustomException(ErrorCode.NEWSLETTER_NOT_FOUND));
 
             // 이미 처리 완료된 경우 스킵
             if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -223,7 +235,9 @@ public class NewsletterService {
             } else if (domainType.needsWebCrawling()) {
                 future = pythonClientService.requestNaverNewsSummary(contentUrl, null);
             } else {
-                throw new IllegalArgumentException("Unsupported domain type: " + domainType);
+                throw new CustomException(
+                        ErrorCode.UNSUPPORTED_DOMAIN_TYPE,
+                        "Unsupported domain type: " + domainType);
             }
 
             PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES);
@@ -241,24 +255,18 @@ public class NewsletterService {
             long duration = System.currentTimeMillis() - startTime;
             log.info("Newsletter {} processed successfully in {}ms", newsletterId, duration);
 
+        } catch (CustomException ce) {
+            // CustomException은 재시도/DLQ 처리를 위해 그대로 재throw
+            log.warn("CustomException occurred while processing newsletter {}: {}", newsletterId, ce.getMessage());
+            markNewsletterFailed(newsletterId, contentUrl, ce.getMessage());
+            throw ce;
+
         } catch (Exception e) {
             // 에러 발생 시 FAILED 상태로 저장
             log.error("Failed to process newsletter {}: {}", newsletterId, e.getMessage(), e);
 
-            try {
-                Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-                if (newsletter != null) {
-                    String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-                    newsletter.setErrorMessage(errorMsg);
-                    newsletter.updateLlmStatus(LlmStatus.FAILED);
-                    newsletterRepository.save(newsletter);
-
-                    // 실패 시에도 캐시 무효화
-                    evictNewsletterCache(newsletterId, contentUrl);
-                }
-            } catch (Exception saveError) {
-                log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
-            }
+            String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+            markNewsletterFailed(newsletterId, contentUrl, errorMsg);
 
             long duration = System.currentTimeMillis() - startTime;
             log.error("Newsletter {} processing failed after {}ms", newsletterId, duration);
@@ -272,13 +280,28 @@ public class NewsletterService {
         }
     }
 
+    /**
+     * Newsletter 처리 실패 시 상태를 FAILED로 저장하고 캐시 무효화
+     */
+    @Transactional
+    private void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
+        try {
+            Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
+            if (newsletter != null) {
+                newsletter.setErrorMessage(errorMessage);
+                newsletter.updateLlmStatus(LlmStatus.FAILED);
+                newsletterRepository.save(newsletter);
+                evictNewsletterCache(newsletterId, contentUrl);
+            }
+        } catch (Exception saveError) {
+            log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+        }
+    }
+
     @Transactional
     public void updateIsRead(Long userId, Long userNewsletterId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
-
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         userNewsletter.updateIsRead();
     }
@@ -357,7 +380,7 @@ public class NewsletterService {
                     newsletter.getConsumptionTimeMin());
 
             // 2. PerspectiveType 계산 (사용자의 NOW 관심사 카테고리 확인)
-            com.archiveat.server.global.common.constant.PerspectiveType perspectiveType = calculatePerspectiveType(
+            PerspectiveType perspectiveType = calculatePerspectiveType(
                     userId,
                     newsletter.getCategory());
 
@@ -370,19 +393,19 @@ public class NewsletterService {
     /**
      * 소비 시간 기준으로 DepthType 계산
      */
-    private com.archiveat.server.global.common.constant.DepthType calculateDepthType(Integer consumptionTimeMin) {
+    private DepthType calculateDepthType(Integer consumptionTimeMin) {
         if (consumptionTimeMin == null) {
             return null;
         }
         return consumptionTimeMin < 10
-                ? com.archiveat.server.global.common.constant.DepthType.LIGHT
-                : com.archiveat.server.global.common.constant.DepthType.DEEP;
+                ? DepthType.LIGHT
+                : DepthType.DEEP;
     }
 
     /**
      * 사용자의 NOW 관심사 카테고리 포함 여부로 PerspectiveType 계산
      */
-    private com.archiveat.server.global.common.constant.PerspectiveType calculatePerspectiveType(Long userId,
+    private PerspectiveType calculatePerspectiveType(Long userId,
             String categoryName) {
         if (categoryName == null) {
             return null;
@@ -390,11 +413,11 @@ public class NewsletterService {
 
         List<String> nowCategories = userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(
                 userId,
-                com.archiveat.server.global.common.constant.PerspectiveType.NOW);
+                PerspectiveType.NOW);
 
         return nowCategories.contains(categoryName)
-                ? com.archiveat.server.global.common.constant.PerspectiveType.NOW
-                : com.archiveat.server.global.common.constant.PerspectiveType.FUTURE;
+                ? PerspectiveType.NOW
+                : PerspectiveType.FUTURE;
     }
 
     /**
