@@ -26,6 +26,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.archiveat.server.global.common.constant.DepthType;
+import com.archiveat.server.global.common.constant.PerspectiveType;
 
 import java.net.URI;
 import java.util.List;
@@ -133,7 +135,7 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = List.of();
 
         // Label 계산
-        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+        String label = LabelFormatter.formatLabel(
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
@@ -166,8 +168,7 @@ public class NewsletterService {
         Domain domain = resolveDomainFromUrl(contentUrl);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
                 .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
@@ -255,10 +256,10 @@ public class NewsletterService {
             log.info("Newsletter {} processed successfully in {}ms", newsletterId, duration);
 
         } catch (CustomException ce) {
-            // CustomException은 GlobalExceptionHandler에서 처리되도록 그대로 재throw
+            // CustomException은 재시도/DLQ 처리를 위해 그대로 재throw
             log.warn("CustomException occurred while processing newsletter {}: {}", newsletterId, ce.getMessage());
             markNewsletterFailed(newsletterId, contentUrl, ce.getMessage());
-            throw ce; // CustomException을 그대로 재throw
+            throw ce;
 
         } catch (Exception e) {
             // 에러 발생 시 FAILED 상태로 저장
@@ -378,7 +379,7 @@ public class NewsletterService {
                     newsletter.getConsumptionTimeMin());
 
             // 2. PerspectiveType 계산 (사용자의 NOW 관심사 카테고리 확인)
-            com.archiveat.server.global.common.constant.PerspectiveType perspectiveType = calculatePerspectiveType(
+            PerspectiveType perspectiveType = calculatePerspectiveType(
                     userId,
                     newsletter.getCategory());
 
@@ -391,19 +392,19 @@ public class NewsletterService {
     /**
      * 소비 시간 기준으로 DepthType 계산
      */
-    private com.archiveat.server.global.common.constant.DepthType calculateDepthType(Integer consumptionTimeMin) {
+    private DepthType calculateDepthType(Integer consumptionTimeMin) {
         if (consumptionTimeMin == null) {
             return null;
         }
         return consumptionTimeMin < 10
-                ? com.archiveat.server.global.common.constant.DepthType.LIGHT
-                : com.archiveat.server.global.common.constant.DepthType.DEEP;
+                ? DepthType.LIGHT
+                : DepthType.DEEP;
     }
 
     /**
      * 사용자의 NOW 관심사 카테고리 포함 여부로 PerspectiveType 계산
      */
-    private com.archiveat.server.global.common.constant.PerspectiveType calculatePerspectiveType(Long userId,
+    private PerspectiveType calculatePerspectiveType(Long userId,
             String categoryName) {
         if (categoryName == null) {
             return null;
@@ -411,11 +412,11 @@ public class NewsletterService {
 
         List<String> nowCategories = userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(
                 userId,
-                com.archiveat.server.global.common.constant.PerspectiveType.NOW);
+                PerspectiveType.NOW);
 
         return nowCategories.contains(categoryName)
-                ? com.archiveat.server.global.common.constant.PerspectiveType.NOW
-                : com.archiveat.server.global.common.constant.PerspectiveType.FUTURE;
+                ? PerspectiveType.NOW
+                : PerspectiveType.FUTURE;
     }
 
     /**
