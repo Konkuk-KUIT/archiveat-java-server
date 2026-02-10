@@ -91,8 +91,7 @@ public class OnboardingService {
                 // 1. 유저 조회
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                                                com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND,
-                                                "User not found. id=" + userId));
+                                                com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
 
                 // 2. 유저 기본 정보(직업군, 시간대 선호도) 업데이트
                 user.updateOnboardingInfo(request.employmentType(), request.availability());

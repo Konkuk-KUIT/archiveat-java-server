@@ -12,6 +12,8 @@ import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.global.common.response.ErrorCode;
+import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.lock.DistributedLockService;
 import com.archiveat.server.global.util.DomainClassifier;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +51,7 @@ public class NewsletterService {
         int deleted = userNewsletterRepository.deleteByIdAndUser_Id(userNewsletterId, userId);
         if (deleted == 0) {
             // 보안: 존재 여부와 권한 여부를 구분하지 않고 404로 통일
-            throw new com.archiveat.server.global.exception.CustomException(
-                    com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND);
+            throw new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND);
         }
         return new DeleteNewsletterResponse(userNewsletterId);
     }
@@ -202,8 +203,7 @@ public class NewsletterService {
         try {
             // 1. Newsletter 상태를 RUNNING으로 업데이트
             Newsletter newsletter = newsletterRepository.findById(newsletterId)
-                    .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                            com.archiveat.server.global.common.response.ErrorCode.NEWSLETTER_NOT_FOUND));
+                    .orElseThrow(() -> new CustomException(ErrorCode.NEWSLETTER_NOT_FOUND));
 
             // 이미 처리 완료된 경우 스킵
             if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -229,8 +229,8 @@ public class NewsletterService {
             } else if (domainType.needsWebCrawling()) {
                 future = pythonClientService.requestNaverNewsSummary(contentUrl, null);
             } else {
-                throw new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.UNSUPPORTED_DOMAIN_TYPE,
+                throw new CustomException(
+                        ErrorCode.UNSUPPORTED_DOMAIN_TYPE,
                         "Unsupported domain type: " + domainType);
             }
 
@@ -283,12 +283,10 @@ public class NewsletterService {
     @Transactional
     public void updateIsRead(Long userId, Long userNewsletterId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         userNewsletter.updateIsRead();
     }
