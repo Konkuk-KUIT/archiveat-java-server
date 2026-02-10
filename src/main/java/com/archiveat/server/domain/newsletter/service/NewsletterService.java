@@ -64,18 +64,29 @@ public class NewsletterService {
         return new DeleteNewsletterResponse(userNewsletterId);
     }
 
+    /**
+     * 뉴스레터 AI 요약 상세 조회
+     * 
+     * @param autoMarkRead true: 자동 읽음 처리 (컴렉션/탐색), false: 수동 처리(홈 탭)
+     */
     @Transactional
-    public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId) {
+    public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId, boolean autoMarkRead) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
-        if (!userNewsletter.isRead())
-            userNewsletter.updateIsRead();
-        else
+        // 자동 읽음 처리 여부에 따라 분기
+        if (autoMarkRead) {
+            if (!userNewsletter.isRead())
+                userNewsletter.updateIsRead();
+            else
+                userNewsletter.updateLastViewedAt();
+            userNewsletterRepository.save(userNewsletter);
+        } else {
+            // 홈 탭: 읽음 처리하지 않고 lastViewedAt만 업데이트
             userNewsletter.updateLastViewedAt();
-        userNewsletterRepository.save(userNewsletter);
+            userNewsletterRepository.save(userNewsletter);
+        }
 
         Newsletter newsletter = userNewsletter.getNewsletter();
 
@@ -117,18 +128,30 @@ public class NewsletterService {
         }
     }
 
+    /**
+     * 뉴스레터 Simple 상세 조회
+     * 
+     * @param autoMarkRead true: 자동 읽음 처리 (컴렉션/탐색), false: 수동 처리(홈 탭)
+     */
     @Transactional
-    public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId) {
+    public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId,
+            boolean autoMarkRead) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
-        if (!userNewsletter.isRead())
-            userNewsletter.updateIsRead();
-        else
+        // 자동 읽음 처리 여부에 따라 분기
+        if (autoMarkRead) {
+            if (!userNewsletter.isRead())
+                userNewsletter.updateIsRead();
+            else
+                userNewsletter.updateLastViewedAt();
+            userNewsletterRepository.save(userNewsletter);
+        } else {
+            // 홈 탭: 읽음 처리하지 않고 lastViewedAt만 업데이트
             userNewsletter.updateLastViewedAt();
-        userNewsletterRepository.save(userNewsletter);
+            userNewsletterRepository.save(userNewsletter);
+        }
 
         Newsletter newsletter = userNewsletter.getNewsletter();
 
@@ -170,7 +193,16 @@ public class NewsletterService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 중복 URL 체크 및 Newsletter 조회/생성을 하나로 통합
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
+                .map(existingNewsletter -> {
+                    boolean alreadyExists = userNewsletterRepository
+                            .existsByUserAndNewsletter(user, existingNewsletter);
+                    if (alreadyExists) {
+                        throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+                    }
+                    return existingNewsletter;
+                })
                 .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
 
         UserNewsletter userNewsletter = userNewsletterRepository.save(
@@ -240,7 +272,19 @@ public class NewsletterService {
                         "Unsupported domain type: " + domainType);
             }
 
-            PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES);
+            // Python 서버 호출 및 크롤링 실패 처리
+            PythonSummaryResponse response;
+            try {
+                response = future.get(10, TimeUnit.MINUTES);
+            } catch (java.util.concurrent.TimeoutException e) {
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            } catch (java.util.concurrent.ExecutionException e) {
+                log.error("Python server execution failed: {}", e.getCause().getMessage(), e);
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new CustomException(ErrorCode.CRAWLING_FAILED);
+            }
 
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
@@ -284,7 +328,7 @@ public class NewsletterService {
      * Newsletter 처리 실패 시 상태를 FAILED로 저장하고 캐시 무효화
      */
     @Transactional
-    private void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
+    protected void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
         try {
             Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
             if (newsletter != null) {

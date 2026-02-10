@@ -16,73 +16,76 @@ import java.util.Optional;
 
 @Repository
 public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, Long> {
-    List<UserNewsletter> findByUserIdAndNewsletterIdIn(Long userId, List<Long> newsletterIds);
+        List<UserNewsletter> findByUserIdAndNewsletterIdIn(Long userId, List<Long> newsletterIds);
 
-    List<UserNewsletter> findAllByUserId(Long userId);
+        List<UserNewsletter> findAllByUserId(Long userId);
 
-    int deleteByIdAndUser_Id(Long id, Long userId);
+        int deleteByIdAndUser_Id(Long id, Long userId);
 
-    Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
+        Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
 
-    // 주간 리포트: 기간 내 저장된 뉴스레터
-    List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
+        // 중복 뉴스레터 체크
+        boolean existsByUserAndNewsletter(com.archiveat.server.domain.user.entity.User user,
+                        com.archiveat.server.domain.newsletter.entity.Newsletter newsletter);
 
-    // 주간 리포트: 기간 내 읽은 뉴스레터
-    List<UserNewsletter> findByUserIdAndLastViewedAtBetweenAndIsReadTrue(Long userId, LocalDateTime start,
-                                                                         LocalDateTime end);
+        // 주간 리포트: 기간 내 저장된 뉴스레터
+        List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
 
-    // 최근 읽은 뉴스레터 목록 (정렬)
-    List<UserNewsletter> findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(Long userId);
+        // 주간 리포트: 기간 내 읽은 뉴스레터
+        List<UserNewsletter> findByUserIdAndLastViewedAtBetweenAndIsReadTrue(Long userId, LocalDateTime start,
+                        LocalDateTime end);
 
-    // Newsletter에 연결된 모든 UserNewsletter 조회 (Label 업데이트용)
-    List<UserNewsletter> findAllByNewsletter_Id(Long newsletterId);
+        // 최근 읽은 뉴스레터 목록 (정렬)
+        List<UserNewsletter> findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(Long userId);
 
-    @Query("SELECT tn.topic.id, COUNT(un.id) FROM UserNewsletter un " +
-            "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
-            "WHERE un.user.id = :userId " +
-            "GROUP BY tn.topic.id")
-    List<Object[]> countNewslettersByTopicForUser(@Param("userId") Long userId);
+        // Newsletter에 연결된 모든 UserNewsletter 조회 (Label 업데이트용)
+        List<UserNewsletter> findAllByNewsletter_Id(Long newsletterId);
 
-    // 인박스(미확인) 뉴스레터 개수 조회
-    int countByUserIdAndIsConfirmedFalse(Long userId);
+        @Query("SELECT tn.topic.id, COUNT(un.id) FROM UserNewsletter un " +
+                        "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
+                        "WHERE un.user.id = :userId " +
+                        "GROUP BY tn.topic.id")
+        List<Object[]> countNewslettersByTopicForUser(@Param("userId") Long userId);
 
-    /**
-     * 특정 유저의 특정 토픽에 속한 뉴스레터 목록을 최신순으로 페이징 조회
-     * N+1 문제를 방지하기 위해 Newsletter 엔티티를 FETCH JOIN
-     */
-    @Query("SELECT un FROM UserNewsletter un " +
-            "JOIN FETCH un.newsletter " +
-            "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
-            "WHERE un.user.id = :userId AND tn.topic.id = :topicId " +
-            "ORDER BY un.createdAt DESC")
-    Slice<UserNewsletter> findByUserIdAndTopicId(
-            @Param("userId") Long userId,
-            @Param("topicId") Long topicId,
-            Pageable pageable
-    );
+        // 인박스(미확인) 뉴스레터 개수 조회
+        int countByUserIdAndIsConfirmedFalse(Long userId);
 
-    /**
-     * 유저의 인박스 아이템(isConfirmed = false)을 최신순으로 조회
-     * Fetch Join을 사용하여 Newsletter와 그에 연결된 Domain 정보를 한 번에 로딩 (N+1 문제 방지)
-     */
-    @Query("SELECT un FROM UserNewsletter un " +
-            "JOIN FETCH un.newsletter n " +
-            "LEFT JOIN FETCH n.domain d " +
-            "WHERE un.user.id = :userId AND un.isConfirmed = false " +
-            "ORDER BY un.createdAt DESC")
-    List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);
+        /**
+         * 특정 유저의 특정 토픽에 속한 뉴스레터 목록을 최신순으로 페이징 조회
+         * N+1 문제를 방지하기 위해 Newsletter 엔티티를 FETCH JOIN
+         */
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "JOIN FETCH un.newsletter " +
+                        "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
+                        "WHERE un.user.id = :userId AND tn.topic.id = :topicId " +
+                        "ORDER BY un.createdAt DESC")
+        Slice<UserNewsletter> findByUserIdAndTopicId(
+                        @Param("userId") Long userId,
+                        @Param("topicId") Long topicId,
+                        Pageable pageable);
 
-    /**
-     * 특정 유저의 인박스 아이템들을 일괄 확인 처리
-     */
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE UserNewsletter un SET un.isConfirmed = true, un.confirmedAt = :now " +
-            "WHERE un.user.id = :userId " +
-            "AND un.isConfirmed = false " +
-            "AND un.newsletter.llmStatus = :status") // [Insight] 서브쿼리 없이 직접 참조 가능
-    void bulkConfirmByUserId(
-            @Param("userId") Long userId,
-            @Param("now") LocalDateTime now,
-            @Param("status") LlmStatus status // [Reason] 하드코딩 방지 및 타입 안정성 확보
-    );
+        /**
+         * 유저의 인박스 아이템(isConfirmed = false)을 최신순으로 조회
+         * Fetch Join을 사용하여 Newsletter와 그에 연결된 Domain 정보를 한 번에 로딩 (N+1 문제 방지)
+         */
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "JOIN FETCH un.newsletter n " +
+                        "LEFT JOIN FETCH n.domain d " +
+                        "WHERE un.user.id = :userId AND un.isConfirmed = false " +
+                        "ORDER BY un.createdAt DESC")
+        List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);
+
+        /**
+         * 특정 유저의 인박스 아이템들을 일괄 확인 처리
+         */
+        @Modifying(clearAutomatically = true)
+        @Query("UPDATE UserNewsletter un SET un.isConfirmed = true, un.confirmedAt = :now " +
+                        "WHERE un.user.id = :userId " +
+                        "AND un.isConfirmed = false " +
+                        "AND un.newsletter.llmStatus = :status") // [Insight] 서브쿼리 없이 직접 참조 가능
+        void bulkConfirmByUserId(
+                        @Param("userId") Long userId,
+                        @Param("now") LocalDateTime now,
+                        @Param("status") LlmStatus status // [Reason] 하드코딩 방지 및 타입 안정성 확보
+        );
 }
