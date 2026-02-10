@@ -8,6 +8,8 @@ import com.archiveat.server.domain.newsletter.event.NewsletterProcessRequestedEv
 import com.archiveat.server.domain.newsletter.repository.DomainRepository;
 import com.archiveat.server.domain.newsletter.repository.NewsletterRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
+import com.archiveat.server.domain.newsletter.util.LabelFormatter;
+import com.archiveat.server.domain.explore.repository.UserTopicRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
@@ -35,12 +37,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @Service
 public class NewsletterService {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private final NewsletterRepository newsletterRepository;
     private final UserNewsletterRepository userNewsletterRepository;
     private final UserRepository userRepository;
     private final DomainRepository domainRepository;
     private final PythonClientService pythonClientService;
-    private final com.archiveat.server.domain.explore.repository.UserTopicRepository userTopicRepository;
+    private final UserTopicRepository userTopicRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher; // Event 발행
     private final DistributedLockService distributedLockService;
@@ -75,7 +79,7 @@ public class NewsletterService {
         List<NewsletterSummaryBlock> summaryBlocks = parseNewsletterSummary(newsletter.getNewsletterSummary());
 
         // Label 계산: UserNewsletter에 저장된 perspectiveType + depthType 조합
-        String label = com.archiveat.server.domain.newsletter.util.LabelFormatter.formatLabel(
+        String label = LabelFormatter.formatLabel(
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
@@ -100,10 +104,9 @@ public class NewsletterService {
         }
 
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(
+            return objectMapper.readValue(
                     newsletterSummaryJson,
-                    mapper.getTypeFactory().constructCollectionType(List.class, NewsletterSummaryBlock.class));
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, NewsletterSummaryBlock.class));
         } catch (Exception e) {
             // 파싱 실패 시 빈 리스트 반환
             return List.of();
@@ -252,40 +255,15 @@ public class NewsletterService {
         } catch (CustomException ce) {
             // CustomException은 GlobalExceptionHandler에서 처리되도록 그대로 재throw
             log.warn("CustomException occurred while processing newsletter {}: {}", newsletterId, ce.getMessage());
-
-            // 상태를 FAILED로 업데이트하고 CustomException 재throw
-            try {
-                Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-                if (newsletter != null) {
-                    newsletter.setErrorMessage(ce.getMessage());
-                    newsletter.updateLlmStatus(LlmStatus.FAILED);
-                    newsletterRepository.save(newsletter);
-                    evictNewsletterCache(newsletterId, contentUrl);
-                }
-            } catch (Exception saveError) {
-                log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
-            }
-
+            markNewsletterFailed(newsletterId, contentUrl, ce.getMessage());
             throw ce; // CustomException을 그대로 재throw
 
         } catch (Exception e) {
             // 에러 발생 시 FAILED 상태로 저장
             log.error("Failed to process newsletter {}: {}", newsletterId, e.getMessage(), e);
 
-            try {
-                Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-                if (newsletter != null) {
-                    String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-                    newsletter.setErrorMessage(errorMsg);
-                    newsletter.updateLlmStatus(LlmStatus.FAILED);
-                    newsletterRepository.save(newsletter);
-
-                    // 실패 시에도 캐시 무효화
-                    evictNewsletterCache(newsletterId, contentUrl);
-                }
-            } catch (Exception saveError) {
-                log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
-            }
+            String errorMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+            markNewsletterFailed(newsletterId, contentUrl, errorMsg);
 
             long duration = System.currentTimeMillis() - startTime;
             log.error("Newsletter {} processing failed after {}ms", newsletterId, duration);
@@ -296,6 +274,23 @@ public class NewsletterService {
         } finally {
             // 분산 락 해제
             distributedLockService.unlock(lockKey);
+        }
+    }
+
+    /**
+     * Newsletter 처리 실패 시 상태를 FAILED로 저장하고 캐시 무효화
+     */
+    private void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
+        try {
+            Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
+            if (newsletter != null) {
+                newsletter.setErrorMessage(errorMessage);
+                newsletter.updateLlmStatus(LlmStatus.FAILED);
+                newsletterRepository.save(newsletter);
+                evictNewsletterCache(newsletterId, contentUrl);
+            }
+        } catch (Exception saveError) {
+            log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
         }
     }
 
