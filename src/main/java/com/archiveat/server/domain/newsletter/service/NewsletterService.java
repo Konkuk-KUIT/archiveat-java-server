@@ -249,6 +249,25 @@ public class NewsletterService {
             long duration = System.currentTimeMillis() - startTime;
             log.info("Newsletter {} processed successfully in {}ms", newsletterId, duration);
 
+        } catch (CustomException ce) {
+            // CustomException은 GlobalExceptionHandler에서 처리되도록 그대로 재throw
+            log.warn("CustomException occurred while processing newsletter {}: {}", newsletterId, ce.getMessage());
+
+            // 상태를 FAILED로 업데이트하고 CustomException 재throw
+            try {
+                Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
+                if (newsletter != null) {
+                    newsletter.setErrorMessage(ce.getMessage());
+                    newsletter.updateLlmStatus(LlmStatus.FAILED);
+                    newsletterRepository.save(newsletter);
+                    evictNewsletterCache(newsletterId, contentUrl);
+                }
+            } catch (Exception saveError) {
+                log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+            }
+
+            throw ce; // CustomException을 그대로 재throw
+
         } catch (Exception e) {
             // 에러 발생 시 FAILED 상태로 저장
             log.error("Failed to process newsletter {}: {}", newsletterId, e.getMessage(), e);
@@ -282,9 +301,6 @@ public class NewsletterService {
 
     @Transactional
     public void updateIsRead(Long userId, Long userNewsletterId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 

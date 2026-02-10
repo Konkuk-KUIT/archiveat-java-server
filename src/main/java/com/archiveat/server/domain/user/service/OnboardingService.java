@@ -14,6 +14,8 @@ import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.AvailabilityType;
 import com.archiveat.server.global.common.constant.EmploymentType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.global.common.response.ErrorCode;
+import com.archiveat.server.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,9 +37,7 @@ public class OnboardingService {
         @Transactional
         public void editNickname(Long userId, String newNickname) {
                 User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                                                com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND,
-                                                "User not found. id=" + userId));
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
                 user.updateNickname(newNickname);
         }
@@ -46,9 +46,7 @@ public class OnboardingService {
         @Transactional(readOnly = true)
         public NicknameResponse getNickname(Long userId) {
                 User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                                                com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND,
-                                                "User not found. id=" + userId));
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
                 return new NicknameResponse(user.getNickname());
         }
@@ -90,8 +88,7 @@ public class OnboardingService {
         public void submitOnboardingInfo(Long userId, OnboardingInfoRequest request) {
                 // 1. 유저 조회
                 User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
-                                                com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
                 // 2. 유저 기본 정보(직업군, 시간대 선호도) 업데이트
                 user.updateOnboardingInfo(request.employmentType(), request.availability());
