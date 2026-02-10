@@ -17,6 +17,7 @@ import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.response.ErrorCode;
 import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.lock.DistributedLockService;
+import com.archiveat.server.global.security.TokenHashUtil;
 import com.archiveat.server.global.util.DomainClassifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,7 @@ public class NewsletterService {
 
     private final ApplicationEventPublisher applicationEventPublisher; // Event 발행
     private final DistributedLockService distributedLockService;
+    private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
 
     @Transactional
@@ -194,8 +196,8 @@ public class NewsletterService {
         log.info("Starting async newsletter processing for ID: {}", newsletterId);
         long startTime = System.currentTimeMillis();
 
-        // 분산 락 키 생성
-        String lockKey = "newsletter:lock:" + contentUrl.hashCode();
+        // 분산 락 키 생성 (SHA-256 해시로 충돌 방지)
+        String lockKey = "newsletter:lock:" + tokenHashUtil.sha256Hex(contentUrl);
 
         // 분산 락 획득 시도 (Watchdog 활성화, leaseTime = -1)
         if (!distributedLockService.tryLock(lockKey, 1)) {
