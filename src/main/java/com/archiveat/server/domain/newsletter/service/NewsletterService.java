@@ -48,7 +48,9 @@ public class NewsletterService {
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
         int deleted = userNewsletterRepository.deleteByIdAndUser_Id(userNewsletterId, userId);
         if (deleted == 0) {
-            // TODO throw new NewsletterNotFoundException
+            // 보안: 존재 여부와 권한 여부를 구분하지 않고 404로 통일
+            throw new com.archiveat.server.global.exception.CustomException(
+                    com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND);
         }
         return new DeleteNewsletterResponse(userNewsletterId);
     }
@@ -57,7 +59,8 @@ public class NewsletterService {
     public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
@@ -110,7 +113,8 @@ public class NewsletterService {
     public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         if (!userNewsletter.isRead())
             userNewsletter.updateIsRead();
@@ -147,7 +151,7 @@ public class NewsletterService {
      * 3. 즉시 클라이언트에 응답 반환 (PENDING 상태)
      * 4. Worker가 큐에서 작업을 가져가 비동기 처리
      * 
-     * ⭐ 트랜잭션 문제 해결:
+     * 트랜잭션 문제 해결:
      * - @Transactional 안에서 직접 큐에 넣으면 커밋 전까지 Redis에 반영 안 됨
      * - Event + @TransactionalEventListener(AFTER_COMMIT)로 분리하여 해결
      */
@@ -156,7 +160,8 @@ public class NewsletterService {
         Domain domain = resolveDomainFromUrl(contentUrl);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
 
         Newsletter newsletter = newsletterRepository.findByContentUrl(contentUrl)
                 .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
@@ -197,7 +202,8 @@ public class NewsletterService {
         try {
             // 1. Newsletter 상태를 RUNNING으로 업데이트
             Newsletter newsletter = newsletterRepository.findById(newsletterId)
-                    .orElseThrow(() -> new IllegalArgumentException("Newsletter not found: " + newsletterId));
+                    .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                            com.archiveat.server.global.common.response.ErrorCode.NEWSLETTER_NOT_FOUND));
 
             // 이미 처리 완료된 경우 스킵
             if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -223,7 +229,9 @@ public class NewsletterService {
             } else if (domainType.needsWebCrawling()) {
                 future = pythonClientService.requestNaverNewsSummary(contentUrl, null);
             } else {
-                throw new IllegalArgumentException("Unsupported domain type: " + domainType);
+                throw new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.UNSUPPORTED_DOMAIN_TYPE,
+                        "Unsupported domain type: " + domainType);
             }
 
             PythonSummaryResponse response = future.get(10, TimeUnit.MINUTES);
@@ -275,10 +283,12 @@ public class NewsletterService {
     @Transactional
     public void updateIsRead(Long userId, Long userNewsletterId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
 
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Newsletter not found or access denied"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
         userNewsletter.updateIsRead();
     }

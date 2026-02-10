@@ -9,7 +9,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 //final 이거나 @NonNull 이 붙은 필드만 파라미터로 받는 생성자를 자동 생성
 @RequiredArgsConstructor
 @Service
@@ -23,11 +22,14 @@ public class AuthService {
 
     @Transactional
     public IssuedTokens login(String email, String rawPassword) {
+        // 보안 강화: 사용자 없음과 비밀번호 오류를 구분하지 않음
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.LOGIN_FAILED));
 
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new IllegalStateException("Wrong password");
+            throw new com.archiveat.server.global.exception.CustomException(
+                    com.archiveat.server.global.common.response.ErrorCode.LOGIN_FAILED);
         }
 
         String accessToken = jwtUtil.generateAccessToken(user.getId());
@@ -49,7 +51,8 @@ public class AuthService {
     public IssuedTokens signupAndLogin(String email, String password, String nickname) {
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalStateException("Email already exists");
+            throw new com.archiveat.server.global.exception.CustomException(
+                    com.archiveat.server.global.common.response.ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         String encoded = passwordEncoder.encode(password);
@@ -68,19 +71,22 @@ public class AuthService {
     @Transactional
     public IssuedTokens reissueTokensByRefresh(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalStateException("Refresh token missing");
+            throw new com.archiveat.server.global.exception.CustomException(
+                    com.archiveat.server.global.common.response.ErrorCode.REFRESH_TOKEN_MISSING);
         }
 
         jwtUtil.validate(refreshToken);
         Long userId = jwtUtil.getUserId(refreshToken);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
 
         // DB에 저장된 refresh와 일치해야 함
         String incomingHash = tokenHashUtil.sha256Hex(refreshToken);
         if (!user.matchesRefreshToken(incomingHash)) {
-            throw new IllegalStateException("Refresh token invalid");
+            throw new com.archiveat.server.global.exception.CustomException(
+                    com.archiveat.server.global.common.response.ErrorCode.REFRESH_TOKEN_INVALID);
         }
 
         String newAccessToken = jwtUtil.generateAccessToken(userId);
@@ -96,12 +102,14 @@ public class AuthService {
     @Transactional
     public void logout(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new com.archiveat.server.global.exception.CustomException(
+                        com.archiveat.server.global.common.response.ErrorCode.USER_NOT_FOUND));
         user.clearRefreshToken();
         userRepository.save(user);
     }
 
     // 서비스 내부용 토큰 페어
-    public record IssuedTokens(String accessToken, String refreshToken) {}
+    public record IssuedTokens(String accessToken, String refreshToken) {
+    }
 
 }
