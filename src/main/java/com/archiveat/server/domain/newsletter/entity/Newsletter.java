@@ -66,6 +66,14 @@ public class Newsletter extends BaseEntity {
         this.errorMessage = null;
     }
 
+    @Builder
+    public Newsletter(Domain domain, String title, String contentUrl, LlmStatus llmStatus) {
+        this.domain = domain;
+        this.title = title;
+        this.contentUrl = contentUrl;
+        this.llmStatus = llmStatus != null ? llmStatus : LlmStatus.PENDING;
+    }
+
     public static Newsletter createPending(Domain domain, String contentUrl) {
         return new Newsletter(domain, contentUrl);
     }
