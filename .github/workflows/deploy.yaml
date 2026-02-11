@@ -12,6 +12,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get runner public IP
+        id: ip
+        run: |
+          IP="$(curl -fsSL https://checkip.amazonaws.com)"
+          echo "ipv4=$IP" >> "$GITHUB_OUTPUT"
+
+      - name: Authorize runner IP in security group
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id "${{ secrets.SECURITY_GROUP_ID }}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.ip.outputs.ipv4 }}/32" || true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -34,3 +55,12 @@ jobs:
             echo "[2/2] Compose up (java-server only)"
             cd "$COMPOSE_DIR"
             docker compose up -d --build java-server
+
+      - name: Revoke runner IP from security group
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "${{ secrets.SECURITY_GROUP_ID }}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.ip.outputs.ipv4 }}/32" || true
