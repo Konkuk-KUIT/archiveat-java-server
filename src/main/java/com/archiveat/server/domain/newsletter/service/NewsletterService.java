@@ -354,7 +354,9 @@ public class NewsletterService {
         return domainRepository.findByName(domainName)
                 .orElseGet(() -> {
                     try {
-                        return domainRepository.save(new Domain(domainName));
+                        return domainRepository.save(
+                                Domain.builder().name(domainName).build()
+                        );
                     } catch (DataIntegrityViolationException e) {
                         // 동시성 조절: 동시에 다른 트랜잭션에서 생성한 경우
                         return domainRepository.findByName(domainName)

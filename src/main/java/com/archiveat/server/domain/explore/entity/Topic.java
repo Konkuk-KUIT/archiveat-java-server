@@ -2,6 +2,7 @@ package com.archiveat.server.domain.explore.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -19,4 +20,10 @@ public class Topic {
     private Category category;
 
     private String name; // 주식, AI ...
+
+    @Builder
+    public Topic(String name, Category category) {
+        this.name = name;
+        this.category = category;
+    }
 }

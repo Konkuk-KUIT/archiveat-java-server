@@ -2,6 +2,7 @@ package com.archiveat.server.domain.explore.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -20,4 +21,9 @@ public class Category {
 
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private List<Topic> topics = new ArrayList<>(); // 초기화를 통해 NullPointerException 방지
+
+    @Builder
+    public Category(String name) {
+        this.name = name;
+    }
 }
