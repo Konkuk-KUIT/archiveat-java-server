@@ -1,5 +1,9 @@
 package com.archiveat.server.domain.newsletter.service;
 
+import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.explore.entity.TopicNewsletter;
+import com.archiveat.server.domain.explore.repository.TopicNewsletterRepository;
+import com.archiveat.server.domain.explore.repository.TopicRepository;
 import com.archiveat.server.domain.newsletter.dto.response.*;
 import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
@@ -48,6 +52,8 @@ public class NewsletterService {
     private final DomainRepository domainRepository;
     private final PythonClientService pythonClientService;
     private final UserTopicRepository userTopicRepository;
+    private final TopicNewsletterRepository topicNewsletterRepository;
+    private final TopicRepository topicRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher; // Event 발행
     private final DistributedLockService distributedLockService;
@@ -289,6 +295,13 @@ public class NewsletterService {
             // 4. Newsletter 업데이트 (DONE 상태)
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
+
+            Topic topic = topicRepository
+                    .findByName(response.getAnalysis().getTopicName())
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 Topic입니다."));
+
+            topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
+
 
             // 5. 캐시 무효화 (Stale Cache 방지) ⭐
             evictNewsletterCache(newsletterId, contentUrl);
