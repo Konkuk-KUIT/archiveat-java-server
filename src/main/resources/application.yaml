@@ -1,6 +1,7 @@
 spring:
   application:
     name: server
+  forward-headers-strategy: framework
   datasource:
     url: jdbc:postgresql://localhost:5432/${DB_NAME}
     username: ${DB_USER}
@@ -49,4 +50,3 @@ springdoc:
     path: /archiveat-docs  #localhost:8080/archiveat-docs로 접속
 
     doc-expansion: none    # none: 다 접힘(깔끔), list: 다 펼침(기본값)
-
