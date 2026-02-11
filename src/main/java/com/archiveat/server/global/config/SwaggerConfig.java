@@ -3,6 +3,7 @@ package com.archiveat.server.global.config;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,8 @@ public class SwaggerConfig {
                         .title("Archiveat API Docs")
                         .description("Archiveat 프로젝트의 백엔드 API 명세서입니다.")
                         .version("v1.0.0"))
+                // Swagger UI에서 사용하는 기본 Server URL을 명시적으로 지정
+                .addServersItem(new Server().url("https://archiveat.io.kr"))
                 // 3. 전체 API에 보안 요구사항을 적용합니다.
                 .addSecurityItem(securityRequirement)
                 // 4. 상세한 보안 스키마 정의를 API 구성 요소(Components)에 등록합니다.

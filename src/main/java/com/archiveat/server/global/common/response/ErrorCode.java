@@ -20,18 +20,27 @@ public enum ErrorCode {
     REFRESH_TOKEN_MISSING(HttpStatus.UNAUTHORIZED, 40106, "리프레시 토큰이 없습니다."),
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, 40107, "유효하지 않은 리프레시 토큰입니다."),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, 40108, "만료된 토큰입니다."),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, 40301, "접근 권한이 없습니다."),
+    INVALID_TOKEN_SIGNATURE(HttpStatus.UNAUTHORIZED, 40109, "유효하지 않은 토큰 서명입니다."),
+    UNSUPPORTED_TOKEN(HttpStatus.UNAUTHORIZED, 40110, "지원하지 않는 토큰 형식입니다."),
+    LOGOUT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50002, "로그아웃 처리에 실패했습니다."),
 
     // [User Domain]
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, 40402, "사용자를 찾을 수 없습니다."),
     USER_ALREADY_EXISTS(HttpStatus.CONFLICT, 40902, "이미 존재하는 사용자입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, 40903, "이미 존재하는 닉네임입니다."),
     INVALID_NICKNAME_FORMAT(HttpStatus.BAD_REQUEST, 40011, "닉네임 형식이 올바르지 않습니다."),
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, 40014, "현재 비밀번호가 일치하지 않습니다."),
+    SAME_AS_OLD_PASSWORD(HttpStatus.BAD_REQUEST, 40015, "새 비밀번호는 기존 비밀번호와 다르게 설정해야 합니다."),
+    USER_WITHDRAWN(HttpStatus.FORBIDDEN, 40302, "탈퇴한 회원입니다."),
 
     // [Newsletter Domain]
     NEWSLETTER_NOT_FOUND(HttpStatus.NOT_FOUND, 40413, "뉴스레터를 찾을 수 없습니다."),
     NEWSLETTER_PROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50001, "뉴스레터 처리 중 오류가 발생했습니다."),
     INVALID_CONTENT_URL(HttpStatus.BAD_REQUEST, 40012, "유효하지 않은 콘텐츠 URL입니다."),
     UNSUPPORTED_DOMAIN_TYPE(HttpStatus.BAD_REQUEST, 40013, "지원하지 않는 도메인 타입입니다."),
+    NEWSLETTER_ALREADY_EXISTS(HttpStatus.CONFLICT, 40904, "이미 저장된 뉴스레터(URL)입니다."),
+    CRAWLING_FAILED(HttpStatus.BAD_GATEWAY, 50201, "콘텐츠를 가져올 수 없습니다."),
 
     // [Explore & Inbox]
     USER_NEWSLETTER_NOT_FOUND(HttpStatus.NOT_FOUND, 40410, "인박스 아이템을 찾을 수 없습니다."),
