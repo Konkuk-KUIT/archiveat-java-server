@@ -6,6 +6,7 @@ import com.archiveat.server.domain.explore.service.ExploreService;
 import com.archiveat.server.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -39,7 +40,7 @@ public class ExploreController {
     public ApiResponse<TopicNewslettersResponse> getTopicNewsletters(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long topicId,
-            @PageableDefault(size = 20) Pageable pageable
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
         TopicNewslettersResponse response = exploreService.getTopicNewsletters(userId, topicId, pageable);
 
