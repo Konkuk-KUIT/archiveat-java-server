@@ -12,3 +12,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+jwt:
+  secret: vmfhaltjxptmxh_dkzkdlqlt_tltmxlal_wnfrjt_xkzk_01234567890123456789 # HS256을 위해 충분히 긴 문자열
+  access-token-expiration-ms: 3600000
+  refresh-token-expiration-ms: 1209600000
+  issuer: archiveat-test

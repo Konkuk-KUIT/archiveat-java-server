@@ -225,7 +225,9 @@ class ExploreServiceTest {
 
         // then
         assertSoftly(softly -> {
+            softly.assertThat(response.inbox()).hasSize(1);
             List<InboxResponse.InboxItemDto> items = response.inbox().getFirst().items();
+            softly.assertThat(items).hasSize(2);
 
             // 분석 완료된 경우: ID와 이름이 존재해야 함
             InboxResponse.InboxItemDto doneItem = items.get(0);
@@ -264,7 +266,7 @@ class ExploreServiceTest {
         when(newTop.getName()).thenReturn("주식");
         when(newTop.getCategory()).thenReturn(newCat);
 
-        when(userNewsletterRepository.findById(anyLong())).thenReturn(Optional.of(mockUn));
+        when(userNewsletterRepository.findById(100L)).thenReturn(Optional.of(mockUn));
         when(categoryRepository.findById(2L)).thenReturn(Optional.of(newCat));
         when(topicRepository.findById(20L)).thenReturn(Optional.of(newTop));
 
