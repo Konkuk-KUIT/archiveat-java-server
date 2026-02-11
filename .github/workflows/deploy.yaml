@@ -1,0 +1,36 @@
+name: Deploy (SSH)
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            # Adjust these paths to your server layout
+            JAVA_REPO_DIR="${{ secrets.JAVA_REPO_DIR }}"
+            COMPOSE_DIR="${{ secrets.COMPOSE_DIR }}"
+
+            echo "[1/2] Pull java repo"
+            if [ -n "$JAVA_REPO_DIR" ]; then
+              cd "$JAVA_REPO_DIR"
+              git pull origin main
+            fi
+
+            echo "[2/2] Compose up (java-server only)"
+            cd "$COMPOSE_DIR"
+            docker compose up -d --build java-server
