@@ -24,13 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(JpaConfig.class)
 class UserNewsletterRepositoryTest {
 
-    @Autowired
-    private UserNewsletterRepository userNewsletterRepository;
-    @Autowired
-    private TestEntityManager em;
+    @Autowired private UserNewsletterRepository userNewsletterRepository;
+    @Autowired private TestEntityManager em;
 
     @Test
-    @DisplayName("성공: 유저별 토픽 뉴스레터 개수 조회 (GROUP BY 쿼리 검증)")
+    @DisplayName("[UserNewsletter] 유저별 토픽 뉴스레터 개수 조회 (GROUP BY 쿼리 검증)")
     void countNewslettersByTopicForUser_Success() {
         // given
         User user = User.builder()
@@ -73,13 +71,13 @@ class UserNewsletterRepositoryTest {
 
         // then
         assertThat(results).isNotEmpty();
-        Object[] row = results.get(0);
+        Object[] row = results.getFirst();
         assertThat(row[0]).isEqualTo(topic.getId());
         assertThat(row[1]).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("성공: 미확인 뉴스레터(인박스) 목록 조회 검증")
+    @DisplayName("[UserNewsletter] 미확인 뉴스레터(인박스) 목록 조회 검증")
     void findAllInboxByUserId_Success() {
         // given
         User user = User.builder().email("inbox@test.com").nickname("인박스유저").build();
@@ -106,11 +104,11 @@ class UserNewsletterRepositoryTest {
 
         // then
         assertThat(inboxList).hasSize(1);
-        assertThat(inboxList.get(0).getNewsletter().getTitle()).isEqualTo("뉴스레터2");
+        assertThat(inboxList.getFirst().getNewsletter().getTitle()).isEqualTo("뉴스레터2");
     }
 
     @Test
-    @DisplayName("성공: 인박스 아이템 일괄 확인 처리(Bulk Update) 검증")
+    @DisplayName("[UserNewsletter] 인박스 아이템 일괄 확인 처리(Bulk Update) 검증")
     void bulkConfirmByUserId_Success() {
         // given
         User user = User.builder().email("bulk@test.com").nickname("벌크유저").build();

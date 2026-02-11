@@ -24,7 +24,7 @@ public class HomeService {
 
     private final UserNewsletterRepository userNewsletterRepository;
     private final CollectionRepository collectionRepository;
-    private final CollectionNewsletterRepository collectionNewsletterRepository; // 추가된 의존성
+    private final CollectionNewsletterRepository collectionNewsletterRepository;
 
     @Transactional(readOnly = true)
     public HomeResponse getHomeData(Long userId) {
@@ -34,7 +34,8 @@ public class HomeService {
 
         // 1. 뉴스레터 카드 데이터 조회
         // 전달받은 userId를 리포지토리에 직접 사용하여 DB 쿼리 효율을 높입니다.
-        List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId).stream()
+        List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId)
+                .stream()
                 .map(un -> new HomeResponse.ContentCardResponse(
                         un.getNewsletter().getId(),
                         determineTabLabel(un.getPerspectiveType(), un.getDepthType()),
@@ -46,8 +47,8 @@ public class HomeService {
                 .collect(Collectors.toList());
 
 
-        List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
-                .findAllByUserId(userId).stream()
+        List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository.findAllByUserId(userId)
+                .stream()
                 .map(col -> {
                     // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
                     List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId())
