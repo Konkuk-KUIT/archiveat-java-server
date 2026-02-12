@@ -1,9 +1,5 @@
 package com.archiveat.server.domain.report.service;
 
-import com.archiveat.server.domain.explore.entity.Category;
-import com.archiveat.server.domain.explore.entity.Topic;
-import com.archiveat.server.domain.explore.entity.TopicNewsletter;
-import com.archiveat.server.domain.explore.repository.TopicNewsletterRepository;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.report.dto.response.*;
@@ -26,7 +22,6 @@ import java.util.stream.Collectors;
 public class ReportService {
 
     private final UserNewsletterRepository userNewsletterRepository;
-    private final TopicNewsletterRepository topicNewsletterRepository;
 
     /**
      * 주간 리포트 전체 정보 조회
@@ -46,8 +41,8 @@ public class ReportService {
         int totalSavedCount = savedThisWeek.size();
         int totalReadCount = readThisWeek.size();
 
-        // 2. 밸런스 집계
-        Map<String, Integer> balance = calculateBalance(readThisWeek);
+        // 2. 밸런스 집계 (저장한 것 기준)
+        Map<String, Integer> balance = calculateBalance(savedThisWeek);
 
         // 3. 관심사 갭 분석 (수정: 조회한 리스트를 파라미터로 전달하여 중복 쿼리 방지)
         List<WeeklyReportResponse.InterestGap> interestGaps = calculateInterestGaps(savedThisWeek, readThisWeek);
@@ -81,35 +76,16 @@ public class ReportService {
         List<UserNewsletter> readThisWeek = userNewsletterRepository
                 .findByUserIdAndLastViewedAtBetweenAndIsReadTrue(userId, weekRange[0], weekRange[1]);
 
-        // 1. 최근 읽은 뉴스레터 목록 (Repository 메서드명 변경 가정: findTop10...)
-        // 만약 Repository 이름을 안 바꿨다면 기존 메서드를 쓰되, 아래 로직은 동일하게 적용
+        // 최근 읽은 뉴스레터 목록
         List<UserNewsletter> recentReadList = userNewsletterRepository
                 .findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(userId);
 
-        // [N+1 해결] 2. 뉴스레터 ID 목록 추출
-        List<Long> newsletterIds = recentReadList.stream()
-                .map(un -> un.getNewsletter().getId())
-                .toList();
-
-        // [N+1 해결] 3. 관련된 토픽 정보를 한 번에 조회하여 Map으로 변환
-        Map<Long, String> categoryMap = new HashMap<>();
-        if (!newsletterIds.isEmpty()) {
-            List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findByNewsletterIdIn(newsletterIds);
-
-            for (TopicNewsletter tn : topicNewsletters) {
-                // Topic이 없거나 Category가 없는 경우 대비
-                String categoryName = "기타";
-                if (tn.getTopic() != null && tn.getTopic().getCategory() != null) {
-                    categoryName = tn.getTopic().getCategory().getName();
-                }
-                categoryMap.put(tn.getNewsletter().getId(), categoryName);
-            }
-        }
-
-        // 4. Map을 사용하여 데이터 매핑 (DB 재조회 없음)
+        // Newsletter.category 필드를 직접 사용 (TopicNewsletter 불필요)
         List<ConsumptionResponse.RecentRead> recentReads = recentReadList.stream()
                 .map(un -> {
-                    String categoryName = categoryMap.getOrDefault(un.getNewsletter().getId(), "기타");
+                    String categoryName = un.getNewsletter().getCategory() != null
+                            ? un.getNewsletter().getCategory()
+                            : "기타";
 
                     LocalDate lastViewedDate = un.getLastViewedAt() != null
                             ? un.getLastViewedAt().toLocalDate()
@@ -225,69 +201,62 @@ public class ReportService {
 
     /**
      * 관심사 갭 분석: |저장 - 읽음| 절댓값이 큰 순서로 Top 4
-     * 수정: DB 조회를 제거하고 파라미터로 리스트를 받음
+     * Newsletter.topic 필드 사용 (null 허용)
      */
     private List<WeeklyReportResponse.InterestGap> calculateInterestGaps(
             List<UserNewsletter> savedThisWeek,
             List<UserNewsletter> readThisWeek) {
 
-        // 1. Newsletter ID 수집
-        Set<Long> savedNewsletterIds = savedThisWeek.stream()
-                .map(un -> un.getNewsletter().getId())
-                .collect(Collectors.toSet()); // 검색 속도를 위해 Set 사용
+        // 1. Newsletter ID → topic 매핑
+        Map<Long, String> newsletterTopicMap = new HashMap<>();
 
-        Set<Long> readNewsletterIds = readThisWeek.stream()
-                .map(un -> un.getNewsletter().getId())
-                .collect(Collectors.toSet());
-
-        // 2. 모든 Newsletter ID 합치기
-        Set<Long> allNewsletterIds = new HashSet<>();
-        allNewsletterIds.addAll(savedNewsletterIds);
-        allNewsletterIds.addAll(readNewsletterIds);
-
-        if (allNewsletterIds.isEmpty()) {
-            return Collections.emptyList();
+        // Saved에서 topic 수집
+        for (UserNewsletter un : savedThisWeek) {
+            if (un.getNewsletter() != null && un.getNewsletter().getTopic() != null) {
+                newsletterTopicMap.put(un.getNewsletter().getId(), un.getNewsletter().getTopic());
+            }
         }
 
-        // 3. TopicNewsletter로 Newsletter → Topic 매핑 (Bulk 조회)
-        List<TopicNewsletter> topicNewsletters = topicNewsletterRepository
-                .findByNewsletterIdIn(new ArrayList<>(allNewsletterIds));
+        // Read에서 topic 수집
+        for (UserNewsletter un : readThisWeek) {
+            if (un.getNewsletter() != null && un.getNewsletter().getTopic() != null) {
+                newsletterTopicMap.putIfAbsent(un.getNewsletter().getId(), un.getNewsletter().getTopic());
+            }
+        }
 
-        // 4. Topic별 저장/읽음 개수 집계
+        // 2. Topic별 saved/read 카운트 집계
         Map<String, Integer> topicSavedCount = new HashMap<>();
         Map<String, Integer> topicReadCount = new HashMap<>();
 
-        for (TopicNewsletter tn : topicNewsletters) {
-            if (tn.getTopic() == null)
-                continue;
-
-            Category category = tn.getTopic().getCategory();
-            String topicName = (category != null) ? category.getName() : tn.getTopic().getName();
-            Long newsletterId = tn.getNewsletter().getId();
-
-            if (savedNewsletterIds.contains(newsletterId)) {
-                topicSavedCount.put(topicName, topicSavedCount.getOrDefault(topicName, 0) + 1);
-            }
-            if (readNewsletterIds.contains(newsletterId)) {
-                topicReadCount.put(topicName, topicReadCount.getOrDefault(topicName, 0) + 1);
+        for (UserNewsletter un : savedThisWeek) {
+            String topic = newsletterTopicMap.get(un.getNewsletter().getId());
+            if (topic != null) {
+                topicSavedCount.put(topic, topicSavedCount.getOrDefault(topic, 0) + 1);
             }
         }
 
-        // 5. Gap 계산 및 정렬 (기존 로직 동일)
+        for (UserNewsletter un : readThisWeek) {
+            String topic = newsletterTopicMap.get(un.getNewsletter().getId());
+            if (topic != null) {
+                topicReadCount.put(topic, topicReadCount.getOrDefault(topic, 0) + 1);
+            }
+        }
+
+        // 3. 모든 topic 합치기
         Set<String> allTopics = new HashSet<>();
         allTopics.addAll(topicSavedCount.keySet());
         allTopics.addAll(topicReadCount.keySet());
 
+        // 4. 절댓값 기준 정렬 후 상위 4개
         return allTopics.stream()
-                .map(topicName -> {
-                    int saved = topicSavedCount.getOrDefault(topicName, 0);
-                    int read = topicReadCount.getOrDefault(topicName, 0);
-                    return new WeeklyReportResponse.InterestGap(topicName, saved, read);
-                })
+                .map(topic -> new WeeklyReportResponse.InterestGap(
+                        topic,
+                        topicSavedCount.getOrDefault(topic, 0),
+                        topicReadCount.getOrDefault(topic, 0)))
                 .sorted((a, b) -> {
-                    int gapA = Math.abs(a.savedCount() - a.readCount());
-                    int gapB = Math.abs(b.savedCount() - b.readCount());
-                    return Integer.compare(gapB, gapA);
+                    int absGapA = Math.abs(a.savedCount() - a.readCount());
+                    int absGapB = Math.abs(b.savedCount() - b.readCount());
+                    return Integer.compare(absGapB, absGapA);
                 })
                 .limit(4)
                 .collect(Collectors.toList());
