@@ -2,13 +2,14 @@ package com.archiveat.server.domain.collection.entity;
 
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "collection_newsletters")
 public class CollectionNewsletter {
     @Id

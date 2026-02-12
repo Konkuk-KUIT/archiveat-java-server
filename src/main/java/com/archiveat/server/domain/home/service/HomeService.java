@@ -4,8 +4,6 @@ import com.archiveat.server.domain.collection.repository.CollectionNewsletterRep
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
-import com.archiveat.server.domain.user.entity.User;
-import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.HomeTabType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
@@ -50,6 +48,7 @@ public class HomeService {
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository.findAllByUserId(userId)
                 .stream()
                 .map(col -> {
+                    // Todo: N+1 문제 최적화 필요
                     // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
                     List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId())
                             .stream()

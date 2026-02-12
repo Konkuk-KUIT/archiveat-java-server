@@ -1,9 +1,8 @@
 package com.archiveat.server.domain.home.controller;
 
-import com.archiveat.server.domain.explore.controller.ExploreController;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
 import com.archiveat.server.domain.home.service.HomeService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.archiveat.server.global.jwt.JwtUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,13 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(HomeController.class)
 public class HomeControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockitoBean
-    private HomeService homeService;
+    @Autowired private MockMvc mockMvc;
+    @MockitoBean private HomeService homeService;
+    @MockitoBean private JwtUtil jwtUtil;
 
     @Test
     @WithMockUser(username = "1")

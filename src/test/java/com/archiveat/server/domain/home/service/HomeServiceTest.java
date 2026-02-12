@@ -48,6 +48,8 @@ public class HomeServiceTest {
             when(n.getId()).thenReturn(i);
             when(n.getTitle()).thenReturn("Test Newsletter " + i);
             when(n.getThumbnailUrl()).thenReturn("http://example.com/" + i + ".jpg");
+            when(n.getSmallCardSummary()).thenReturn("Small summary " + i);
+            when(n.getMediumCardSummary()).thenReturn("Medium summary " + i);
             mockNewsletters.add(n);
         }
 

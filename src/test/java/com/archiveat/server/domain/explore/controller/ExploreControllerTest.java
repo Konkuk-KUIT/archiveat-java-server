@@ -4,7 +4,6 @@ import com.archiveat.server.domain.explore.dto.request.ClassificationRequest;
 import com.archiveat.server.domain.explore.dto.response.*;
 import com.archiveat.server.domain.explore.service.ExploreService;
 import com.archiveat.server.global.common.constant.LlmStatus;
-import com.archiveat.server.global.jwt.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
