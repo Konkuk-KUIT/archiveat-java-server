@@ -333,13 +333,12 @@ public class NewsletterService {
     /* Newsletter 저장을 별도의 transaction으로 구성 -> 불일치 문제 해결*/
     @Transactional
     protected void saveNewsletterWithTopic(Newsletter newsletter, PythonSummaryResponse response) {
-        newsletter.updateFromPythonResponse(response);
-        newsletterRepository.save(newsletter);
-
         if (response.getAnalysis() == null) {
             throw new CustomException(ErrorCode.INVALID_PYTHON_RESPONSE,
                     "Analysis is null in response");
         }
+        newsletter.updateFromPythonResponse(response);
+        newsletterRepository.save(newsletter);
 
         Topic topic = topicRepository
                 .findByName(response.getAnalysis().getTopicName())
