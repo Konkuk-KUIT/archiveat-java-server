@@ -293,14 +293,7 @@ public class NewsletterService {
             }
 
             // 4. Newsletter 업데이트 (DONE 상태)
-            newsletter.updateFromPythonResponse(response);
-            newsletterRepository.save(newsletter);
-
-            Topic topic = topicRepository
-                    .findByName(response.getAnalysis().getTopicName())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 Topic입니다."));
-
-            topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
+            saveNewsletterWithTopic(newsletter, response);
 
 
             // 5. 캐시 무효화 (Stale Cache 방지) ⭐
@@ -335,6 +328,26 @@ public class NewsletterService {
             // 분산 락 해제
             distributedLockService.unlock(lockKey);
         }
+    }
+
+    /* Newsletter 저장을 별도의 transaction으로 구성 -> 불일치 문제 해결*/
+    @Transactional
+    protected void saveNewsletterWithTopic(Newsletter newsletter, PythonSummaryResponse response) {
+        newsletter.updateFromPythonResponse(response);
+        newsletterRepository.save(newsletter);
+
+        if (response.getAnalysis() == null) {
+            throw new CustomException(ErrorCode.INVALID_PYTHON_RESPONSE,
+                    "Analysis is null in response");
+        }
+
+        Topic topic = topicRepository
+                .findByName(response.getAnalysis().getTopicName())
+                .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+
+
+        topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
+
     }
 
     /**
