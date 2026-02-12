@@ -7,6 +7,7 @@ import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -37,4 +38,16 @@ public class Collection extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     private DepthType depthType;
+
+    @Builder
+    public Collection(User user, Topic topic, String title, String smallCardSummary, String mediumCardSummary,
+                      PerspectiveType perspectiveType, DepthType depthType) {
+        this.user = user;
+        this.topic = topic;
+        this.title = title;
+        this.smallCardSummary = smallCardSummary;
+        this.mediumCardSummary = mediumCardSummary;
+        this.perspectiveType = perspectiveType;
+        this.depthType = depthType;
+    }
 }
