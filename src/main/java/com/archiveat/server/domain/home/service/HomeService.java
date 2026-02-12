@@ -4,8 +4,6 @@ import com.archiveat.server.domain.collection.repository.CollectionNewsletterRep
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
-import com.archiveat.server.domain.user.entity.User;
-import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.HomeTabType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
@@ -26,7 +24,7 @@ public class HomeService {
 
     private final UserNewsletterRepository userNewsletterRepository;
     private final CollectionRepository collectionRepository;
-    private final CollectionNewsletterRepository collectionNewsletterRepository; // 추가된 의존성
+    private final CollectionNewsletterRepository collectionNewsletterRepository;
 
     @Transactional(readOnly = true)
     public HomeResponse getHomeData(Long userId) {
@@ -36,7 +34,8 @@ public class HomeService {
 
         // 1. 뉴스레터 카드 데이터 조회
         // 전달받은 userId를 리포지토리에 직접 사용하여 DB 쿼리 효율을 높입니다.
-        List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId).stream()
+        List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId)
+                .stream()
                 .map(un -> new HomeResponse.ContentCardResponse(
                         un.getNewsletter().getId(),
                         determineTabLabel(un.getPerspectiveType(), un.getDepthType()),
@@ -50,6 +49,7 @@ public class HomeService {
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
                 .findAllByUserId(userId).stream()
                 .map(col -> {
+                    // Todo: N+1 문제 최적화 필요
                     // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
                     List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId())
                             .stream()
