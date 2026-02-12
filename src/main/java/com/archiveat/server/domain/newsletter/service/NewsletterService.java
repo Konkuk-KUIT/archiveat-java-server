@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -59,6 +60,8 @@ public class NewsletterService {
     private final DistributedLockService distributedLockService;
     private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
+
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
@@ -330,23 +333,39 @@ public class NewsletterService {
         }
     }
 
-    /* Newsletter 저장을 별도의 transaction으로 구성 -> 불일치 문제 해결*/
-    @Transactional
+    /*
+    * Newsletter 저장을 별도의 transaction으로 구성 -> 불일치 문제 해결
+    * Spring @Transactional 은 프록시 패턴으로 동작
+    * 클라이언트 호출
+           ↓
+      NewsletterService 프록시 (트랜잭션 시작)
+           ↓
+      실제 NewsletterService 객체
+
+    * 하지만 같은 클래스 내에서 호출하면:
+      processNewsletterAsync() 내부에서
+           ↓
+      this.saveNewsletterWithTopic() 호출
+           ↓
+      프록시를 거치지 않음 @Transactional 무시
+    * @Transactional 대신 transaction Template 사용하여 해결
+    */
     protected void saveNewsletterWithTopic(Newsletter newsletter, PythonSummaryResponse response) {
-        if (response.getAnalysis() == null) {
-            throw new CustomException(ErrorCode.INVALID_PYTHON_RESPONSE,
-                    "Analysis is null in response");
-        }
-        newsletter.updateFromPythonResponse(response);
-        newsletterRepository.save(newsletter);
+        transactionTemplate.executeWithoutResult(status -> {
+            if (response.getAnalysis() == null) {
+                throw new CustomException(ErrorCode.INVALID_PYTHON_RESPONSE,
+                        "Analysis is null in response");
+            }
 
-        Topic topic = topicRepository
-                .findByName(response.getAnalysis().getTopicName())
-                .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+            newsletter.updateFromPythonResponse(response);
+            newsletterRepository.save(newsletter);
 
+            Topic topic = topicRepository
+                    .findByName(response.getAnalysis().getTopicName())
+                    .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
 
-        topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
-
+            topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
+        });
     }
 
     /**
