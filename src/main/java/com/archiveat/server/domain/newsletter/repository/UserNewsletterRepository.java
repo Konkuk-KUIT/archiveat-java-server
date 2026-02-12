@@ -2,6 +2,8 @@ package com.archiveat.server.domain.newsletter.repository;
 
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.domain.user.entity.User;
+import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,8 +27,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
 
         // 중복 뉴스레터 체크
-        boolean existsByUserAndNewsletter(com.archiveat.server.domain.user.entity.User user,
-                        com.archiveat.server.domain.newsletter.entity.Newsletter newsletter);
+        boolean existsByUserAndNewsletter(User user, Newsletter newsletter);
 
         // 주간 리포트: 기간 내 저장된 뉴스레터
         List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);

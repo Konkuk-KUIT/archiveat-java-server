@@ -18,6 +18,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.archiveat.server.global.common.constant.DateTimeConstant.APP_ZONE;
+
 @Service
 @RequiredArgsConstructor
 public class HomeService {
@@ -45,7 +47,6 @@ public class HomeService {
                         un.getNewsletter().getThumbnailUrl()))
                 .collect(Collectors.toList());
 
-
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
                 .findAllByUserId(userId).stream()
                 .map(col -> {
@@ -69,7 +70,6 @@ public class HomeService {
 
         return new HomeResponse(firstGreeting, secondGreeting, tabs, contentCards, contentCollectionCards);
     }
-
 
     private List<HomeResponse.TabResponse> getTabResponses() {
         return Arrays.stream(HomeTabType.values())
@@ -95,7 +95,7 @@ public class HomeService {
      * 현재 시간을 기준으로 아침/밤 인사말을 결정합니다.
      */
     private String getDynamicGreeting() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(APP_ZONE);
         // 오전 5시 ~ 오후 6시 이전까지는 "좋은 아침", 그 외 시간은 "좋은 밤"
         if (now.isAfter(LocalTime.of(5, 0)) && now.isBefore(LocalTime.of(18, 0))) {
             return "좋은 아침이에요!";
