@@ -83,7 +83,8 @@ public class ReportService {
         // Newsletter.category 필드를 직접 사용 (TopicNewsletter 불필요)
         List<ConsumptionResponse.RecentRead> recentReads = recentReadList.stream()
                 .map(un -> {
-                    String categoryName = un.getNewsletter().getCategory() != null
+                    // NPE 방지: Newsletter가 null인 경우 처리
+                    String categoryName = (un.getNewsletter() != null && un.getNewsletter().getCategory() != null)
                             ? un.getNewsletter().getCategory()
                             : "기타";
 
@@ -92,17 +93,14 @@ public class ReportService {
                             : LocalDate.now();
 
                     return new ConsumptionResponse.RecentRead(
-                            un.getNewsletter().getId(),
-                            un.getNewsletter().getTitle(),
+                            un.getNewsletter() != null ? un.getNewsletter().getId() : 0L,
+                            un.getNewsletter() != null ? un.getNewsletter().getTitle() : "삭제된 뉴스레터",
                             categoryName,
                             lastViewedDate);
-                })
-                .collect(Collectors.toList());
+                }).collect(Collectors.toList());
 
-        return new ConsumptionResponse(
-                savedThisWeek.size(),
-                readThisWeek.size(),
-                recentReads);
+        return new ConsumptionResponse(savedThisWeek.size(), readThisWeek.size(), recentReads);
+
     }
 
     /**
@@ -229,16 +227,20 @@ public class ReportService {
         Map<String, Integer> topicReadCount = new HashMap<>();
 
         for (UserNewsletter un : savedThisWeek) {
-            String topic = newsletterTopicMap.get(un.getNewsletter().getId());
-            if (topic != null) {
-                topicSavedCount.put(topic, topicSavedCount.getOrDefault(topic, 0) + 1);
+            if (un.getNewsletter() != null) {
+                String topic = newsletterTopicMap.get(un.getNewsletter().getId());
+                if (topic != null) {
+                    topicSavedCount.put(topic, topicSavedCount.getOrDefault(topic, 0) + 1);
+                }
             }
         }
 
         for (UserNewsletter un : readThisWeek) {
-            String topic = newsletterTopicMap.get(un.getNewsletter().getId());
-            if (topic != null) {
-                topicReadCount.put(topic, topicReadCount.getOrDefault(topic, 0) + 1);
+            if (un.getNewsletter() != null) {
+                String topic = newsletterTopicMap.get(un.getNewsletter().getId());
+                if (topic != null) {
+                    topicReadCount.put(topic, topicReadCount.getOrDefault(topic, 0) + 1);
+                }
             }
         }
 
