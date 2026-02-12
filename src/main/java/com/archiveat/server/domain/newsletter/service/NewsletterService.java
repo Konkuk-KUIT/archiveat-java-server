@@ -203,16 +203,37 @@ public class NewsletterService {
                     }
                     return existingNewsletter;
                 })
-                .orElseGet(() -> newsletterRepository.save(Newsletter.createPending(domain, contentUrl)));
+                .orElseGet(() -> {
+                    try {
+                        return newsletterRepository.save(Newsletter.createPending(domain, contentUrl));
+                    } catch (DataIntegrityViolationException e) {
+                        // 동시성 해결: 동시에 다른 요청으로 Newsletter가 생성된 경우
+                        return newsletterRepository.findByContentUrl(contentUrl)
+                                .orElseThrow(() -> e);
+                    }
+                });
 
-        UserNewsletter userNewsletter = userNewsletterRepository.save(
-                UserNewsletter.create(user, newsletter, memo));
+        UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, memo);
 
-        // 이벤트 발행 (EventListener가 트랜잭션 커밋 후 큐에 추가)
-        Long newsletterId = newsletter.getId();
-        applicationEventPublisher.publishEvent(
-                new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
-        log.info("Newsletter event published: newsletterId={}", newsletterId);
+        // [Optimization] 이미 분석 완료된(DONE) 뉴스레터라면 비동기 처리 없이 바로 라벨 계산
+        if (newsletter.getLlmStatus() == LlmStatus.DONE) {
+            com.archiveat.server.global.common.constant.DepthType depthType = calculateDepthType(
+                    newsletter.getConsumptionTimeMin());
+            PerspectiveType perspectiveType = calculatePerspectiveType(userId, newsletter.getCategory());
+
+            userNewsletter.updateLabelComponents(perspectiveType, depthType);
+            userNewsletterRepository.save(userNewsletter);
+            log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}",
+                    newsletter.getId(), userId);
+        } else {
+            // PENDING 상태라면 저장 후 이벤트 발행하여 비동기 처리
+            userNewsletterRepository.save(userNewsletter);
+
+            Long newsletterId = newsletter.getId();
+            applicationEventPublisher.publishEvent(
+                    new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
+            log.info("Newsletter event published: newsletterId={}", newsletterId);
+        }
 
         return new GenerateNewsletterResponse(
                 userNewsletter.getId(),
@@ -355,8 +376,7 @@ public class NewsletterService {
                 .orElseGet(() -> {
                     try {
                         return domainRepository.save(
-                                Domain.builder().name(domainName).build()
-                        );
+                                Domain.builder().name(domainName).build());
                     } catch (DataIntegrityViolationException e) {
                         // 동시성 조절: 동시에 다른 트랜잭션에서 생성한 경우
                         return domainRepository.findByName(domainName)
@@ -417,20 +437,39 @@ public class NewsletterService {
     private void updateLabelComponentsForAllUsers(Newsletter newsletter) {
         // 이 Newsletter를 사용하는 모든 UserNewsletter 조회
         List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
+        if (userNewsletters.isEmpty()) {
+            return;
+        }
 
+        // 1. DepthType 계산 (모든 유저 공통)
+        com.archiveat.server.global.common.constant.DepthType depthType = calculateDepthType(
+                newsletter.getConsumptionTimeMin());
+
+        // 2. 모든 유저의 NOW 관심사 조회 (Bulk Fetch - N+1 해결)
+        List<Long> userIds = userNewsletters.stream()
+                .map(un -> un.getUser().getId())
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+
+        List<Object[]> userTopics = userTopicRepository.findCategoryNamesByUserIdsAndPerspectiveType(
+                userIds, PerspectiveType.NOW);
+
+        // Map<UserId, List<CategoryName>> 형태로 변환
+        java.util.Map<Long, List<String>> userTopicMap = userTopics.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        row -> (Long) row[0],
+                        java.util.stream.Collectors.mapping(row -> (String) row[1],
+                                java.util.stream.Collectors.toList())));
+
+        // 3. 각 유저별 PerspectiveType 계산 및 업데이트
         for (UserNewsletter userNewsletter : userNewsletters) {
             Long userId = userNewsletter.getUser().getId();
+            List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
 
-            // 1. DepthType 계산 (소비 시간 기준)
-            com.archiveat.server.global.common.constant.DepthType depthType = calculateDepthType(
-                    newsletter.getConsumptionTimeMin());
-
-            // 2. PerspectiveType 계산 (사용자의 NOW 관심사 카테고리 확인)
-            PerspectiveType perspectiveType = calculatePerspectiveType(
-                    userId,
+            PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(
+                    nowCategories,
                     newsletter.getCategory());
 
-            // 3. UserNewsletter 업데이트
             userNewsletter.updateLabelComponents(perspectiveType, depthType);
             userNewsletterRepository.save(userNewsletter);
         }
@@ -449,18 +488,24 @@ public class NewsletterService {
     }
 
     /**
-     * 사용자의 NOW 관심사 카테고리 포함 여부로 PerspectiveType 계산
+     * 사용자의 NOW 관심사 카테고리 포함 여부로 PerspectiveType 계산 (Single User - 기존 유지)
      */
-    private PerspectiveType calculatePerspectiveType(Long userId,
-            String categoryName) {
+    private PerspectiveType calculatePerspectiveType(Long userId, String categoryName) {
         if (categoryName == null) {
             return null;
         }
-
         List<String> nowCategories = userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(
-                userId,
-                PerspectiveType.NOW);
+                userId, PerspectiveType.NOW);
+        return calculatePerspectiveTypeWithCache(nowCategories, categoryName);
+    }
 
+    /**
+     * 이미 조회된 관심사 목록을 기반으로 PerspectiveType 계산 (Optimization Helper)
+     */
+    private PerspectiveType calculatePerspectiveTypeWithCache(List<String> nowCategories, String categoryName) {
+        if (categoryName == null) {
+            return null;
+        }
         return nowCategories.contains(categoryName)
                 ? PerspectiveType.NOW
                 : PerspectiveType.FUTURE;
