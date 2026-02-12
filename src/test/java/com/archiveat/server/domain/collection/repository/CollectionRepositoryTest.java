@@ -24,9 +24,12 @@ import static org.assertj.core.api.SoftAssertions.assertSoftly;
 @Import(JpaConfig.class)
 public class CollectionRepositoryTest {
 
-    @Autowired private CollectionRepository collectionRepository;
-    @Autowired private CollectionNewsletterRepository collectionNewsletterRepository;
-    @Autowired private TestEntityManager em;
+    @Autowired
+    private CollectionRepository collectionRepository;
+    @Autowired
+    private CollectionNewsletterRepository collectionNewsletterRepository;
+    @Autowired
+    private TestEntityManager em;
 
     @Test
     @DisplayName("[Collection] 유저별 컬렉션 목록 및 내부 뉴스레터 조회 통합 검증")
@@ -35,13 +38,14 @@ public class CollectionRepositoryTest {
         User user = User.builder().email("test@test.com").nickname("아카이빗").build();
         em.persist(user);
 
-        Category category = Category.builder().name("IT").build();
+        Category category = Category.builder().name("테스트IT").build();
         em.persist(category);
 
-        Topic topic = Topic.builder().name("AI").category(category).build();
+        Topic topic = Topic.builder().name("테스트AI").category(category).build();
         em.persist(topic);
 
-        Collection collection = Collection.builder().user(user).topic(topic).title("컬렉션").perspectiveType(PerspectiveType.NOW).depthType(DepthType.LIGHT).build();
+        Collection collection = Collection.builder().user(user).topic(topic).title("컬렉션")
+                .perspectiveType(PerspectiveType.NOW).depthType(DepthType.LIGHT).build();
         em.persist(collection);
 
         for (int i = 1; i <= 4; i++) {
@@ -63,7 +67,8 @@ public class CollectionRepositoryTest {
 
         // when
         List<Collection> userCollections = collectionRepository.findAllByUserId(user.getId());
-        List<CollectionNewsletter> collectionItems = collectionNewsletterRepository.findAllByCollectionId(collection.getId());
+        List<CollectionNewsletter> collectionItems = collectionNewsletterRepository
+                .findAllByCollectionId(collection.getId());
 
         // then
         assertSoftly(softly -> {

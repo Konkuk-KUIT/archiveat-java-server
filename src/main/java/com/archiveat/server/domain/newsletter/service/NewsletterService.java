@@ -1,5 +1,9 @@
 package com.archiveat.server.domain.newsletter.service;
 
+import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.explore.entity.TopicNewsletter;
+import com.archiveat.server.domain.explore.repository.TopicNewsletterRepository;
+import com.archiveat.server.domain.explore.repository.TopicRepository;
 import com.archiveat.server.domain.newsletter.dto.response.*;
 import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
@@ -13,7 +17,7 @@ import com.archiveat.server.domain.explore.repository.UserTopicRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
-import com.archiveat.server.global.client.dto.PythonSummaryResponse;
+// import com.archiveat.server.global.client.dto.PythonSummaryResponse;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.response.ErrorCode;
 import com.archiveat.server.global.exception.CustomException;
@@ -37,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -52,11 +57,15 @@ public class NewsletterService {
     private final PythonClientService pythonClientService;
     private final UserTopicRepository userTopicRepository;
     private final NewsletterSynchronizer newsletterSynchronizer; // 동시성 제어용 컴포넌트
+    private final TopicNewsletterRepository topicNewsletterRepository;
+    private final TopicRepository topicRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher;
     private final DistributedLockService distributedLockService;
     private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
+
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public DeleteNewsletterResponse deleteUserNewsletter(Long userId, Long userNewsletterId) {
@@ -249,6 +258,10 @@ public class NewsletterService {
 
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
+            // 4. Newsletter 업데이트 (DONE 상태)
+            saveNewsletterWithTopic(newsletter, response);
+
+            // 5. 캐시 무효화 (Stale Cache 방지) ⭐
             evictNewsletterCache(newsletterId, contentUrl);
 
             // [Performance Fix] N+1 문제 해결된 Bulk Update 호출
@@ -268,6 +281,42 @@ public class NewsletterService {
         } finally {
             distributedLockService.unlock(lockKey);
         }
+    }
+
+    /*
+     * Newsletter 저장을 별도의 transaction으로 구성 -> 불일치 문제 해결
+     * Spring @Transactional 은 프록시 패턴으로 동작
+     * 클라이언트 호출
+     * ↓
+     * NewsletterService 프록시 (트랜잭션 시작)
+     * ↓
+     * 실제 NewsletterService 객체
+     * 
+     * 하지만 같은 클래스 내에서 호출하면:
+     * processNewsletterAsync() 내부에서
+     * ↓
+     * this.saveNewsletterWithTopic() 호출
+     * ↓
+     * 프록시를 거치지 않음 @Transactional 무시
+     * 
+     * @Transactional 대신 transaction Template 사용하여 해결
+     */
+    protected void saveNewsletterWithTopic(Newsletter newsletter, PythonSummaryResponse response) {
+        transactionTemplate.executeWithoutResult(status -> {
+            if (response.getAnalysis() == null) {
+                throw new CustomException(ErrorCode.INVALID_PYTHON_RESPONSE,
+                        "Analysis is null in response");
+            }
+
+            newsletter.updateFromPythonResponse(response);
+            newsletterRepository.save(newsletter);
+
+            Topic topic = topicRepository
+                    .findByName(response.getAnalysis().getTopicName())
+                    .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+
+            topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
+        });
     }
 
     @Transactional

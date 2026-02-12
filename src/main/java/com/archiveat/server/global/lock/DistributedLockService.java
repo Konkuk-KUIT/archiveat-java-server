@@ -18,11 +18,27 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public abstract class DistributedLockService {
+public class DistributedLockService {
 
     private final RedissonClient redissonClient;
 
-    public abstract boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit timeUnit);
+    public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit timeUnit) {
+        RLock lock = redissonClient.getLock(key);
+        try {
+            // leaseTime을 -1로 설정하여 Watchdog 활성화
+            boolean acquired = lock.tryLock(waitTime, leaseTime, timeUnit);
+            if (acquired) {
+                log.debug("Lock acquired: {}", key);
+            } else {
+                log.warn("Failed to acquire lock: {}", key);
+            }
+            return acquired;
+        } catch (InterruptedException e) {
+            log.error("Lock acquisition interrupted: {}", key, e);
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
 
     /**
      * 분산 락 획득 시도
