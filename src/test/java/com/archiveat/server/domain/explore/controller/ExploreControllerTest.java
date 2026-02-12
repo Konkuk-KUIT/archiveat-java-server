@@ -4,7 +4,6 @@ import com.archiveat.server.domain.explore.dto.request.ClassificationRequest;
 import com.archiveat.server.domain.explore.dto.response.*;
 import com.archiveat.server.domain.explore.service.ExploreService;
 import com.archiveat.server.global.common.constant.LlmStatus;
-import com.archiveat.server.global.jwt.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,21 +25,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ExploreController.class)
 public class ExploreControllerTest {
-    @Autowired
-    private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private ExploreService exploreService;
-
-    @MockitoBean
-    private JwtUtil jwtUtil;
+    @MockitoBean private ExploreService exploreService;
 
     @Test
     @WithMockUser(username = "1")
-    @DisplayName("탐색 메인 데이터 조회 API 검증")
+    @DisplayName("[Explore] 탐색 메인 데이터 조회 API 검증")
     void getExploreData_ApiSuccess() throws Exception {
         // given
         ExploreResponse response = new ExploreResponse(5, LlmStatus.DONE, List.of());
@@ -57,7 +50,7 @@ public class ExploreControllerTest {
 
     @Test
     @WithMockUser(username = "1")
-    @DisplayName("인박스(INBOX) 목록 조회 API: 날짜별 그룹 구조 검증")
+    @DisplayName("[Explore] 인박스(INBOX) 목록 조회 API: 날짜별 그룹 구조 검증")
     void getInbox_ApiSuccess() throws Exception {
         // given
         InboxResponse.InboxItemDto item = InboxResponse.InboxItemDto.builder()
@@ -83,7 +76,7 @@ public class ExploreControllerTest {
 
     @Test
     @WithMockUser(username = "1")
-    @DisplayName("인박스 분류 수정 및 확정 API: 요청/응답 동기화 검증")
+    @DisplayName("[Explore] 인박스 분류 수정 및 확정 API: 요청/응답 동기화 검증")
     void updateInboxClassification_ApiSuccess() throws Exception {
         // given
         ClassificationRequest request = new ClassificationRequest(1L, 10L, "수정 메모");
@@ -106,7 +99,7 @@ public class ExploreControllerTest {
 
     @Test
     @WithMockUser(username = "1")
-    @DisplayName("인박스 일괄 읽음 처리 API 검증")
+    @DisplayName("[Explore] 인박스 일괄 읽음 처리 API 검증")
     void confirmAllInbox_ApiSuccess() throws Exception {
         mockMvc.perform(patch("/explore/inbox/confirmation")
                         .with(csrf()))

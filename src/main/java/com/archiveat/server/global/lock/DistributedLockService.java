@@ -18,9 +18,11 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class DistributedLockService {
+public abstract class DistributedLockService {
 
     private final RedissonClient redissonClient;
+
+    public abstract boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit timeUnit);
 
     /**
      * 분산 락 획득 시도

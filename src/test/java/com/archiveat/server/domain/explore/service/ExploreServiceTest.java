@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,7 +45,7 @@ class ExploreServiceTest {
     private ExploreService exploreService;
 
     @Test
-    @DisplayName("탐색 탭 메인 데이터 조회 테스트")
+    @DisplayName("[Explore] 메인 데이터 조회 테스트")
     void getExploreData_Success() {
         // given
         Long userId = 1L;
@@ -111,7 +110,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("토픽별 뉴스레터 목록 페이징 조회 성공")
+    @DisplayName("[Explore] 토픽별 뉴스레터 목록 페이징 조회 성공")
     void getTopicNewsletters_Success() {
         // given
         Long userId = 1L;
@@ -147,7 +146,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("인박스 조회 시 날짜별 그룹화 검증")
+    @DisplayName("[Explore] 인박스 조회 시 날짜별 그룹화 검증")
     void getInbox_Grouping_Success() {
         // given
         Long userId = 1L;
@@ -185,7 +184,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("인박스 조회 시 LLM 상태에 따른 카테고리/토픽 노출 제어 검증")
+    @DisplayName("[Explore] 인박스 조회 시 LLM 상태에 따른 카테고리/토픽 노출 제어 검증")
     void getInbox_StatusHandling_Success() {
         // given
         Long userId = 1L;
@@ -241,7 +240,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("인박스 분류 수정 성공: 카테고리/토픽 변경 및 원본 동기화 확인")
+    @DisplayName("[Explore] 인박스 분류 수정 성공: 카테고리/토픽 변경 및 원본 동기화 확인")
     void updateInboxClassification_Success() {
         // given
         Long userId = 1L;
@@ -281,7 +280,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("인박스 일괄 확인 처리 호출 검증")
+    @DisplayName("[Explore] 인박스 일괄 확인 처리 호출 검증")
     void confirmAllInbox_Success() {
         // given
         Long userId = 1L;
