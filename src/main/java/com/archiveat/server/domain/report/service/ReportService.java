@@ -160,9 +160,6 @@ public class ReportService {
     // ============== Private Helper Methods ==============
 
     /**
-     * 현재 주의 시작(월요일 00:00)과 종료(일요일 23:59:59.999...) 반환
-     */
-    /**
      * 현재 주의 시작(월요일 00:00 KST)과 종료(일요일 23:59:59... KST)를 UTC로 변환하여 반환
      */
     private LocalDateTime[] getCurrentWeekRange() {

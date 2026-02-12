@@ -92,7 +92,9 @@ public class ExploreService {
                                                 un.getNewsletter().getTitle(),
                                                 un.getNewsletter().getThumbnailUrl(),
                                                 un.isRead(),
-                                                un.getCreatedAt()))
+                                                un.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                                                .withZoneSameInstant(APP_ZONE)
+                                                                .toLocalDateTime()))
                                 .collect(Collectors.toList());
 
                 return new TopicNewslettersResponse(
