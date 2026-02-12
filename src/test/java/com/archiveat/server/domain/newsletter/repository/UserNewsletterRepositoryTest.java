@@ -23,8 +23,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-// @Import(JpaConfig.class)
-@Import(TestConfig.class)
+@Import({ JpaConfig.class, TestConfig.class })
 class UserNewsletterRepositoryTest {
 
         @Autowired

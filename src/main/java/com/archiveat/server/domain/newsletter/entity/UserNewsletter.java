@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "user_newsletters")
+@Table(name = "user_newsletters", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "user_id", "newsletter_id" })
+})
 public class UserNewsletter extends BaseEntity {
 
     @Id

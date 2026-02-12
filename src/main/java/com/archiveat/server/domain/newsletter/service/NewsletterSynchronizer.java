@@ -28,7 +28,7 @@ public class NewsletterSynchronizer {
         return domainRepository.findByName(domainName)
                 .orElseGet(() -> {
                     try {
-                        return domainRepository.save(Domain.builder().name(domainName).build());
+                        return domainRepository.saveAndFlush(Domain.builder().name(domainName).build());
                     } catch (DataIntegrityViolationException e) {
                         return domainRepository.findByName(domainName)
                                 .orElseThrow(() -> e);
@@ -45,7 +45,7 @@ public class NewsletterSynchronizer {
         return newsletterRepository.findByContentUrl(contentUrl)
                 .orElseGet(() -> {
                     try {
-                        return newsletterRepository.save(Newsletter.createPending(domain, contentUrl));
+                        return newsletterRepository.saveAndFlush(Newsletter.createPending(domain, contentUrl));
                     } catch (DataIntegrityViolationException e) {
                         return newsletterRepository.findByContentUrl(contentUrl)
                                 .orElseThrow(() -> e);

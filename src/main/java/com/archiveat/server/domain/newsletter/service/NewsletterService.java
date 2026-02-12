@@ -17,6 +17,7 @@ import com.archiveat.server.domain.explore.repository.UserTopicRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.client.PythonClientService;
+import org.springframework.dao.DataIntegrityViolationException;
 // import com.archiveat.server.global.client.dto.PythonSummaryResponse;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.response.ErrorCode;
@@ -194,12 +195,20 @@ public class NewsletterService {
             PerspectiveType perspectiveType = calculatePerspectiveTypeSingle(userId, newsletter.getCategory());
 
             userNewsletter.updateLabelComponents(perspectiveType, depthType);
-            userNewsletterRepository.save(userNewsletter);
+            try {
+                userNewsletterRepository.save(userNewsletter);
+            } catch (DataIntegrityViolationException e) {
+                throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+            }
             log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}", newsletter.getId(),
                     userId);
         } else {
             // PENDING 상태라면 저장 후 이벤트 발행
-            userNewsletterRepository.save(userNewsletter);
+            try {
+                userNewsletterRepository.save(userNewsletter);
+            } catch (DataIntegrityViolationException e) {
+                throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+            }
             Long newsletterId = newsletter.getId();
             applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
             log.info("Newsletter event published: newsletterId={}", newsletterId);
@@ -256,8 +265,6 @@ public class NewsletterService {
                 throw new CustomException(ErrorCode.CRAWLING_FAILED);
             }
 
-            newsletter.updateFromPythonResponse(response);
-            newsletterRepository.save(newsletter);
             // 4. Newsletter 업데이트 (DONE 상태)
             saveNewsletterWithTopic(newsletter, response);
 
