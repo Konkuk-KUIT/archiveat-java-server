@@ -41,6 +41,7 @@ public enum ErrorCode {
     UNSUPPORTED_DOMAIN_TYPE(HttpStatus.BAD_REQUEST, 40013, "지원하지 않는 도메인 타입입니다."),
     NEWSLETTER_ALREADY_EXISTS(HttpStatus.CONFLICT, 40904, "이미 저장된 뉴스레터(URL)입니다."),
     CRAWLING_FAILED(HttpStatus.BAD_GATEWAY, 50201, "콘텐츠를 가져올 수 없습니다."),
+    INVALID_PYTHON_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, 50001,"Python 서버 응답이 올바른 형식이 아닙니다."),
 
     // [Explore & Inbox]
     USER_NEWSLETTER_NOT_FOUND(HttpStatus.NOT_FOUND, 40410, "인박스 아이템을 찾을 수 없습니다."),
