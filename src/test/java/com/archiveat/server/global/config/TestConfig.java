@@ -32,6 +32,11 @@ public class TestConfig {
             public void unlock(String key) {
                 // 아무것도 안 함 (가짜니까 해제할 것도 없음)
             }
+
+            @Override
+            public boolean isLocked(String key) {
+                return false;
+            }
         };
     }
 }
