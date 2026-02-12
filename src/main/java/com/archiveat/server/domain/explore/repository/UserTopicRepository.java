@@ -11,17 +11,28 @@ import java.util.List;
 
 @Repository
 public interface UserTopicRepository extends JpaRepository<UserTopic, Long> {
-    // 특정 유저의 기존 관심사를 한 번에 삭제하기 위한 쿼리 메서드입니다.
-    void deleteAllByUserId(Long userId);
+        // 특정 유저의 기존 관심사를 한 번에 삭제하기 위한 쿼리 메서드입니다.
+        void deleteAllByUserId(Long userId);
 
-    /**
-     * 특정 유저의 NOW 관심사 카테고리 이름 목록 조회
-     * Label 계산에 사용 (NOW인 카테고리들의 이름을 반환)
-     */
-    @Query("SELECT DISTINCT t.category.name FROM UserTopic ut " +
-            "JOIN ut.topic t " +
-            "WHERE ut.user.id = :userId " +
-            "AND ut.perspectiveType = :perspectiveType")
-    List<String> findCategoryNamesByUserIdAndPerspectiveType(@Param("userId") Long userId,
-            @Param("perspectiveType") PerspectiveType perspectiveType);
+        /**
+         * 특정 유저의 NOW 관심사 카테고리 이름 목록 조회
+         * Label 계산에 사용 (NOW인 카테고리들의 이름을 반환)
+         */
+        @Query("SELECT DISTINCT t.category.name FROM UserTopic ut " +
+                        "JOIN ut.topic t " +
+                        "WHERE ut.user.id = :userId " +
+                        "AND ut.perspectiveType = :perspectiveType")
+        List<String> findCategoryNamesByUserIdAndPerspectiveType(@Param("userId") Long userId,
+                        @Param("perspectiveType") PerspectiveType perspectiveType);
+
+        /**
+         * 여러 유저의 NOW 관심사 카테고리 이름 목록 조회 (Bulk Fetch)
+         * N+1 문제 해결을 위해 IN 절 사용
+         */
+        @Query("SELECT ut.user.id, t.category.name FROM UserTopic ut " +
+                        "JOIN ut.topic t " +
+                        "WHERE ut.user.id IN :userIds " +
+                        "AND ut.perspectiveType = :perspectiveType")
+        List<Object[]> findCategoryNamesByUserIdsAndPerspectiveType(@Param("userIds") List<Long> userIds,
+                        @Param("perspectiveType") PerspectiveType perspectiveType);
 }
