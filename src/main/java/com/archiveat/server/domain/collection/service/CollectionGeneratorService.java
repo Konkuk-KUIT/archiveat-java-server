@@ -2,7 +2,7 @@ package com.archiveat.server.domain.collection.service;
 
 import com.archiveat.server.domain.collection.entity.Collection;
 import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
-import com.archiveat.server.domain.collection.repository.CollectionNewsletterRepository;
+import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
@@ -19,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -38,7 +37,7 @@ public class CollectionGeneratorService {
     private final UserRepository userRepository;
     private final UserNewsletterRepository userNewsletterRepository;
     private final CollectionRepository collectionRepository;
-    private final CollectionNewsletterRepository collectionNewsletterRepository;
+    // Removed CollectionNewsletterRepository dependency as cascade handles saving
     private final TopicRepository topicRepository;
     private final UserTopicRepository userTopicRepository;
     private final TransactionTemplate transactionTemplate;
@@ -135,13 +134,15 @@ public class CollectionGeneratorService {
 
         // 6. Handle Area Constraint (Max 1 per Area)
         // Check if collection exists for (User, Depth, Perspective)
-        collectionRepository.findByUserIdAndDepthTypeAndPerspectiveType(user.getId(), targetDepth, perspectiveType)
-                .ifPresent(existingCollection -> {
-                    // Delete existing collection to replace with new one
-                    collectionRepository.delete(existingCollection);
-                    log.info("Deleted existing collection {} for user {} area {}/{}",
-                            existingCollection.getId(), user.getId(), targetDepth, perspectiveType);
-                });
+        // Handles potential duplicates by deleting all found collections
+        List<Collection> existingCollections = collectionRepository.findByUserIdAndDepthTypeAndPerspectiveType(
+                user.getId(), targetDepth, perspectiveType);
+
+        if (!existingCollections.isEmpty()) {
+            collectionRepository.deleteAll(existingCollections);
+            log.info("Deleted {} existing collection(s) for user {} area {}/{}",
+                    existingCollections.size(), user.getId(), targetDepth, perspectiveType);
+        }
 
         // 7. Create Collection
         Topic topic = topicRepository.findByName(topicName)
@@ -157,7 +158,7 @@ public class CollectionGeneratorService {
 
         collectionRepository.save(collection);
 
-        // 8. Save CollectionNewsletters
+        // 8. Save Collection (Cascade saves CollectionNewsletters)
         List<CollectionNewsletter> collectionNewsletters = selectedCluster.stream()
                 .map(un -> CollectionNewsletter.builder()
                         .collection(collection)
@@ -165,7 +166,8 @@ public class CollectionGeneratorService {
                         .build())
                 .collect(Collectors.toList());
 
-        collectionNewsletterRepository.saveAll(collectionNewsletters);
+        collection.getCollectionNewsletters().addAll(collectionNewsletters);
+        collectionRepository.save(collection);
         log.info("Generated collection {} for user {}", collection.getId(), user.getId());
     }
 
