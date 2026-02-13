@@ -21,6 +21,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.transaction.support.TransactionTemplate;
+
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,8 +41,8 @@ public class CollectionGeneratorService {
     private final CollectionNewsletterRepository collectionNewsletterRepository;
     private final TopicRepository topicRepository;
     private final UserTopicRepository userTopicRepository;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public void generateCollectionsForTime(LocalTime time) {
         log.info("Starting collection generation for time: {}", time);
 
@@ -57,7 +59,10 @@ public class CollectionGeneratorService {
         List<User> users = userRepository.findAll();
         for (User user : users) {
             try {
-                generateForUser(user, targetDepth);
+                transactionTemplate.execute(status -> {
+                    generateForUser(user, targetDepth);
+                    return null;
+                });
             } catch (Exception e) {
                 log.error("Failed to generate collection for user {}", user.getId(), e);
             }
