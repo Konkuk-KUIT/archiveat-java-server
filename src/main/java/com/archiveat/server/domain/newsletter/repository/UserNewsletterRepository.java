@@ -1,6 +1,7 @@
 package com.archiveat.server.domain.newsletter.repository;
 
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
+import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
@@ -89,4 +90,13 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         @Param("now") LocalDateTime now,
                         @Param("status") LlmStatus status // [Reason] 하드코딩 방지 및 타입 안정성 확보
         );
+
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "LEFT JOIN CollectionNewsletter cn ON cn.newsletter.id = un.newsletter.id " +
+                        "AND cn.collection.user.id = un.user.id " +
+                        "WHERE un.user.id = :userId " +
+                        "AND un.depthType = :depthType " +
+                        "AND cn.id IS NULL")
+        List<UserNewsletter> findUncollectedNewsletters(@Param("userId") Long userId,
+                        @Param("depthType") DepthType depthType);
 }
