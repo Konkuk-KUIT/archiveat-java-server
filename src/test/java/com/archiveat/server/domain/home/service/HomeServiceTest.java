@@ -57,6 +57,8 @@ public class HomeServiceTest {
         List<UserNewsletter> mockUserNewsletters = mockNewsletters.stream()
                 .map(n -> {
                     UserNewsletter un = mock(UserNewsletter.class);
+                    long expectedId = n.getId() + 1000; // 임의의 UserNewsletter ID
+                    when(un.getId()).thenReturn(expectedId);
                     when(un.getNewsletter()).thenReturn(n);
                     when(un.getPerspectiveType()).thenReturn(PerspectiveType.NOW);
                     when(un.getDepthType()).thenReturn(DepthType.LIGHT);
@@ -92,6 +94,7 @@ public class HomeServiceTest {
             softly.assertThat(response.tabs()).hasSize(HomeTabType.values().length);
 
             // 뉴스레터 카드 검증
+            softly.assertThat(response.contentCards().getFirst().userNewsletterId()).isGreaterThan(1000L);
             softly.assertThat(response.contentCards()).hasSize(4);
             softly.assertThat(response.contentCards().getFirst().tabLabel()).isEqualTo("영감수집");
 

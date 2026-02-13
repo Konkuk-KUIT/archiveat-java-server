@@ -35,7 +35,7 @@ public class HomeService {
         List<HomeResponse.ContentCardResponse> contentCards = userNewsletterRepository.findAllByUserId(userId)
                 .stream()
                 .map(un -> new HomeResponse.ContentCardResponse(
-                        un.getNewsletter().getId(),
+                        un.getId(),
                         determineTabLabel(un.getPerspectiveType(), un.getDepthType()),
                         "AI 요약",
                         un.getNewsletter().getTitle(),
