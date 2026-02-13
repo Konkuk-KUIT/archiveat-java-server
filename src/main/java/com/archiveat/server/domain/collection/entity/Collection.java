@@ -11,10 +11,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "collections")
+@Table(name = "collections", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "user_id", "depth_type", "perspective_type" })
+})
 public class Collection extends BaseEntity {
 
     @Id
@@ -34,14 +39,19 @@ public class Collection extends BaseEntity {
     private String mediumCardSummary;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "perspective_type") // Explicit column name for clarity
     private PerspectiveType perspectiveType;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "depth_type") // Explicit column name for clarity
     private DepthType depthType;
+
+    @OneToMany(mappedBy = "collection", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CollectionNewsletter> collectionNewsletters = new ArrayList<>();
 
     @Builder
     public Collection(User user, Topic topic, String title, String smallCardSummary, String mediumCardSummary,
-                      PerspectiveType perspectiveType, DepthType depthType) {
+            PerspectiveType perspectiveType, DepthType depthType) {
         this.user = user;
         this.topic = topic;
         this.title = title;

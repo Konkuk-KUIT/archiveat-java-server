@@ -5,6 +5,8 @@ import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepositor
 import com.archiveat.server.domain.report.dto.response.*;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.global.common.constant.DateTimeConstant;
+// Removed unused imports
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime; // 추가됨
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,7 +50,7 @@ public class ReportService {
         // 3. 관심사 갭 분석 (수정: 조회한 리스트를 파라미터로 전달하여 중복 쿼리 방지)
         List<WeeklyReportResponse.InterestGap> interestGaps = calculateInterestGaps(savedThisWeek, readThisWeek);
 
-        // 4. 주차 라벨 생성
+        // 4. 주차 라벨 생성 (UTC -> KST 변환 후 생성)
         String weekLabel = generateWeekLabel(weekStart);
 
         // 5. AI 코멘트 (하드코딩)
@@ -89,8 +92,9 @@ public class ReportService {
                             : "기타";
 
                     LocalDate lastViewedDate = un.getLastViewedAt() != null
-                            ? un.getLastViewedAt().toLocalDate()
-                            : LocalDate.now();
+                            ? un.getLastViewedAt().atZone(ZoneId.of("UTC"))
+                                    .withZoneSameInstant(DateTimeConstant.APP_ZONE).toLocalDate()
+                            : LocalDate.now(DateTimeConstant.APP_ZONE);
 
                     return new ConsumptionResponse.RecentRead(
                             un.getNewsletter() != null ? un.getNewsletter().getId() : 0L,
@@ -156,18 +160,51 @@ public class ReportService {
     // ============== Private Helper Methods ==============
 
     /**
-     * 현재 주의 시작(월요일 00:00)과 종료(일요일 23:59:59.999...) 반환
+     * 현재 주의 시작(월요일 00:00 KST)과 종료(일요일 23:59:59... KST)를 UTC로 변환하여 반환
      */
     private LocalDateTime[] getCurrentWeekRange() {
-        LocalDate today = LocalDate.now();
-        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate sunday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        // 1. KST 기준 현재 날짜
+        LocalDate todayKst = LocalDate.now(DateTimeConstant.APP_ZONE);
 
-        LocalDateTime weekStart = monday.atStartOfDay();
-        // 수정: 23:59:59 대신 LocalTime.MAX 사용하여 정밀도 향상
-        LocalDateTime weekEnd = sunday.atTime(LocalTime.MAX);
+        // 2. KST 기준 월요일, 일요일 계산
+        LocalDate mondayKst = todayKst.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sundayKst = todayKst.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
 
-        return new LocalDateTime[] { weekStart, weekEnd };
+        // 3. KST 기준 시작/종료 시간
+        LocalDateTime kstStart = mondayKst.atStartOfDay();
+        LocalDateTime kstEnd = sundayKst.atTime(LocalTime.MAX);
+
+        // 4. UTC로 변환 (DB 조회용)
+        // DB에는 UTC로 저장되어 있다고 가정하므로, KST 범위를 UTC 범위로 변환하여 조회
+        LocalDateTime utcStart = kstStart.atZone(DateTimeConstant.APP_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC"))
+                .toLocalDateTime();
+        LocalDateTime utcEnd = kstEnd.atZone(DateTimeConstant.APP_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC"))
+                .toLocalDateTime();
+
+        return new LocalDateTime[] { utcStart, utcEnd };
+    }
+
+    /**
+     * 주차 라벨 생성 (입력받은 weekStart는 UTC이므로 KST로 변환 후 사용)
+     */
+    private String generateWeekLabel(LocalDateTime weekStartUtc) {
+        // UTC -> KST 변환
+        LocalDateTime kstStart = weekStartUtc.atZone(ZoneId.of("UTC"))
+                .withZoneSameInstant(DateTimeConstant.APP_ZONE)
+                .toLocalDateTime();
+
+        int month = kstStart.getMonthValue();
+
+        // 월의 몇 번째 주인지 계산 (W 방식)
+        // 예: 2월 2주차 -> 2월 둘째주
+        int weekOfMonth = (kstStart.getDayOfMonth() - 1) / 7 + 1;
+
+        String[] weekNames = { "첫째주", "둘째주", "셋째주", "넷째주", "다섯째주" };
+        String weekName = weekOfMonth <= 5 ? weekNames[weekOfMonth - 1] : "다섯째주";
+
+        return month + "월 " + weekName;
     }
 
     /**
@@ -266,14 +303,6 @@ public class ReportService {
 
     // generateWeekLabel, generatePatternMessages는 기존과 동일하여 생략 가능하지만
     // 전체 코드의 완결성을 위해 아래에 유지합니다.
-
-    private String generateWeekLabel(LocalDateTime weekStart) {
-        int month = weekStart.getMonthValue();
-        int weekOfMonth = (weekStart.getDayOfMonth() - 1) / 7 + 1;
-        String[] weekNames = { "첫째주", "둘째주", "셋째주", "넷째주", "다섯째주" };
-        String weekName = weekOfMonth <= 5 ? weekNames[weekOfMonth - 1] : "다섯째주";
-        return month + "월 " + weekName;
-    }
 
     private Map<String, String> generatePatternMessages(Map<String, Integer> balance) {
         int light = balance.get("light");

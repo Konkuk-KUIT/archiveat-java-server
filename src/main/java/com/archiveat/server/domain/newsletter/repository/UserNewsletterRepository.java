@@ -1,7 +1,10 @@
 package com.archiveat.server.domain.newsletter.repository;
 
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
+import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import com.archiveat.server.domain.user.entity.User;
+import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,8 +28,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
 
         // 중복 뉴스레터 체크
-        boolean existsByUserAndNewsletter(com.archiveat.server.domain.user.entity.User user,
-                        com.archiveat.server.domain.newsletter.entity.Newsletter newsletter);
+        boolean existsByUserAndNewsletter(User user, Newsletter newsletter);
 
         // 주간 리포트: 기간 내 저장된 뉴스레터
         List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
@@ -88,4 +90,13 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         @Param("now") LocalDateTime now,
                         @Param("status") LlmStatus status // [Reason] 하드코딩 방지 및 타입 안정성 확보
         );
+
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "LEFT JOIN CollectionNewsletter cn ON cn.newsletter.id = un.newsletter.id " +
+                        "AND cn.collection.user.id = un.user.id " +
+                        "WHERE un.user.id = :userId " +
+                        "AND un.depthType = :depthType " +
+                        "AND cn.id IS NULL")
+        List<UserNewsletter> findUncollectedNewsletters(@Param("userId") Long userId,
+                        @Param("depthType") DepthType depthType);
 }
