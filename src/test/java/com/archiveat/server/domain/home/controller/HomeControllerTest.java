@@ -60,7 +60,7 @@ public class HomeControllerTest {
                 .andExpect(jsonPath("$.data.tabs[0].type").value("INSPIRATION"))
                 // 뉴스레터 카드 검증
                 .andExpect(jsonPath("$.data.contentCards[0].title").value("테스트 뉴스레터"))
-                .andExpect(jsonPath("$.data.contentCards[0].newsletterId").value(10))
+                .andExpect(jsonPath("$.data.contentCards[0].userNewsletterId").value(10))
                 // 컬렉션 카드 검증
                 .andExpect(jsonPath("$.data.contentCollectionCards[0].title").value("테스트 컬렉션"))
                 .andExpect(jsonPath("$.data.contentCollectionCards[0].thumbnailUrls").isArray())

@@ -25,7 +25,7 @@ public record HomeResponse(
      * 개별 뉴스레터(AI 요약) 카드를 담는 DTO입니다.
      */
     public record ContentCardResponse(
-            Long newsletterId,
+            Long userNewsletterId,
             String tabLabel,
             String cardType, // "AI 요약"
             String title,
