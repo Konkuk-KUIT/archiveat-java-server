@@ -165,8 +165,8 @@ public class CollectionGeneratorService {
     }
 
     private PerspectiveType calculatePerspectiveType(Long userId, String topicName) {
-        List<String> nowCategories = userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(userId,
+        List<String> nowTopics = userTopicRepository.findTopicNamesByUserIdAndPerspectiveType(userId,
                 PerspectiveType.NOW);
-        return nowCategories.contains(topicName) ? PerspectiveType.NOW : PerspectiveType.FUTURE;
+        return nowTopics.contains(topicName) ? PerspectiveType.NOW : PerspectiveType.FUTURE;
     }
 }

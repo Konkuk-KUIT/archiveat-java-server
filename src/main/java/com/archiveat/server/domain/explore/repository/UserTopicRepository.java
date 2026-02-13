@@ -35,4 +35,15 @@ public interface UserTopicRepository extends JpaRepository<UserTopic, Long> {
                         "AND ut.perspectiveType = :perspectiveType")
         List<Object[]> findCategoryNamesByUserIdsAndPerspectiveType(@Param("userIds") List<Long> userIds,
                         @Param("perspectiveType") PerspectiveType perspectiveType);
+
+        /**
+         * 특정 유저의 NOW 관심사 토픽 이름 목록 조회
+         * PerspectiveType 계산에 사용 (Category가 아닌 Topic 이름 비교를 위함)
+         */
+        @Query("SELECT DISTINCT t.name FROM UserTopic ut " +
+                        "JOIN ut.topic t " +
+                        "WHERE ut.user.id = :userId " +
+                        "AND ut.perspectiveType = :perspectiveType")
+        List<String> findTopicNamesByUserIdAndPerspectiveType(@Param("userId") Long userId,
+                        @Param("perspectiveType") PerspectiveType perspectiveType);
 }

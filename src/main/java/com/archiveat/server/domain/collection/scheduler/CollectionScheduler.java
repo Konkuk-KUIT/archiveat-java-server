@@ -3,6 +3,7 @@ package com.archiveat.server.domain.collection.scheduler;
 import com.archiveat.server.domain.collection.service.CollectionGeneratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +11,7 @@ import java.time.LocalTime;
 
 @Slf4j
 @Component
+@EnableScheduling
 @RequiredArgsConstructor
 public class CollectionScheduler {
 
@@ -20,7 +22,7 @@ public class CollectionScheduler {
      */
     @Scheduled(cron = "0 0 6,12,18,22 * * *", zone = "Asia/Seoul")
     public void scheduleCollectionGeneration() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(java.time.ZoneId.of("Asia/Seoul"));
         log.info("Scheduled collection generation triggered at {}", now);
 
         try {
