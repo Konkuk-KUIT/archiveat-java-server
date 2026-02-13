@@ -2,7 +2,6 @@ package com.archiveat.server.domain.collection.service;
 
 import com.archiveat.server.domain.collection.entity.Collection;
 import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
-import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
@@ -17,7 +16,6 @@ import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.common.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.support.TransactionTemplate;
@@ -140,6 +138,7 @@ public class CollectionGeneratorService {
 
         if (!existingCollections.isEmpty()) {
             collectionRepository.deleteAll(existingCollections);
+            collectionRepository.flush(); // Force DELETE execution
             log.info("Deleted {} existing collection(s) for user {} area {}/{}",
                     existingCollections.size(), user.getId(), targetDepth, perspectiveType);
         }
