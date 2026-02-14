@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -30,7 +31,7 @@ class NewsletterServiceTest {
     @Mock
     private UserNewsletterRepository userNewsletterRepository;
 
-    @Mock
+    @Spy
     private ObjectMapper objectMapper;
 
     @Test
@@ -55,13 +56,6 @@ class NewsletterServiceTest {
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
-
-        // Real ObjectMapper to test actual parsing logic
-        ObjectMapper realObjectMapper = new ObjectMapper();
-        given(objectMapper.readValue(any(String.class), any(com.fasterxml.jackson.databind.JavaType.class)))
-                .willAnswer(invocation -> realObjectMapper.readValue((String) invocation.getArgument(0),
-                        (com.fasterxml.jackson.databind.JavaType) invocation.getArgument(1)));
-        given(objectMapper.getTypeFactory()).willReturn(realObjectMapper.getTypeFactory());
 
         // when
         SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId,
