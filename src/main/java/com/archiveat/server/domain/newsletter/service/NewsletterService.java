@@ -1,9 +1,11 @@
 package com.archiveat.server.domain.newsletter.service;
 
 import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.TopicNewsletter;
 import com.archiveat.server.domain.explore.repository.TopicNewsletterRepository;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
+import com.archiveat.server.domain.explore.repository.CategoryRepository;
 import com.archiveat.server.domain.newsletter.dto.response.*;
 import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
@@ -60,6 +62,7 @@ public class NewsletterService {
     private final NewsletterSynchronizer newsletterSynchronizer; // 동시성 제어용 컴포넌트
     private final TopicNewsletterRepository topicNewsletterRepository;
     private final TopicRepository topicRepository;
+    private final CategoryRepository categoryRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher;
     private final DistributedLockService distributedLockService;
@@ -103,10 +106,15 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
         return new ViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
                 label,
@@ -157,10 +165,15 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
         return new SimpleViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
                 label,
@@ -188,7 +201,15 @@ public class NewsletterService {
             throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
         }
 
-        UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, memo);
+        Category category = null;
+        Topic topic = null;
+
+        if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+            category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+            topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+        }
+
+        UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, category, topic, memo);
 
         // 이미 분석 완료된(DONE) 뉴스레터라면 바로 라벨 계산
         if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -408,6 +429,10 @@ public class NewsletterService {
                         Collectors.mapping(row -> (String) row[1], Collectors.toList())));
 
         // 4. Update Loop (DB 조회 없이 메모리에서 처리)
+        // [Refactor] Newsletter의 토픽/카테고리를 UserNewsletter에 반영
+        Category category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+        Topic topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+
         for (UserNewsletter userNewsletter : userNewsletters) {
             Long userId = userNewsletter.getUser().getId();
             List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
@@ -415,6 +440,14 @@ public class NewsletterService {
             PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(nowCategories,
                     newsletter.getCategory());
             userNewsletter.updateLabelComponents(perspectiveType, depthType);
+
+            // [Safeguard] 유저가 이미 분류를 확정한 경우(isConfirmed=true)에는 덮어쓰지 않음
+            if (!userNewsletter.isConfirmed()) {
+                if (category != null && topic != null) {
+                    userNewsletter.updateCategoryAndTopic(category, topic);
+                }
+            }
+
             userNewsletterRepository.save(userNewsletter);
         }
     }

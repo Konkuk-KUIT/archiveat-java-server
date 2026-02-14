@@ -25,7 +25,12 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
         int deleteByIdAndUser_Id(Long id, Long userId);
 
-        Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "JOIN FETCH un.newsletter n " +
+                        "LEFT JOIN FETCH un.category " +
+                        "LEFT JOIN FETCH un.topic " +
+                        "WHERE un.id = :id AND un.user.id = :userId")
+        Optional<UserNewsletter> findByIdAndUser_Id(@Param("id") Long id, @Param("userId") Long userId);
 
         // 중복 뉴스레터 체크
         boolean existsByUserAndNewsletter(User user, Newsletter newsletter);
@@ -43,10 +48,9 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         // Newsletter에 연결된 모든 UserNewsletter 조회 (Label 업데이트용)
         List<UserNewsletter> findAllByNewsletter_Id(Long newsletterId);
 
-        @Query("SELECT tn.topic.id, COUNT(un.id) FROM UserNewsletter un " +
-                        "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
+        @Query("SELECT un.topic.id, COUNT(un.id) FROM UserNewsletter un " +
                         "WHERE un.user.id = :userId " +
-                        "GROUP BY tn.topic.id")
+                        "GROUP BY un.topic.id")
         List<Object[]> countNewslettersByTopicForUser(@Param("userId") Long userId);
 
         // 인박스(미확인) 뉴스레터 개수 조회
@@ -58,8 +62,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
          */
         @Query("SELECT un FROM UserNewsletter un " +
                         "JOIN FETCH un.newsletter " +
-                        "JOIN TopicNewsletter tn ON un.newsletter.id = tn.newsletter.id " +
-                        "WHERE un.user.id = :userId AND tn.topic.id = :topicId " +
+                        "WHERE un.user.id = :userId AND un.topic.id = :topicId " +
                         "ORDER BY un.createdAt DESC")
         Slice<UserNewsletter> findByUserIdAndTopicId(
                         @Param("userId") Long userId,
@@ -73,6 +76,8 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         @Query("SELECT un FROM UserNewsletter un " +
                         "JOIN FETCH un.newsletter n " +
                         "LEFT JOIN FETCH n.domain d " +
+                        "LEFT JOIN FETCH un.category " +
+                        "LEFT JOIN FETCH un.topic " +
                         "WHERE un.user.id = :userId AND un.isConfirmed = false " +
                         "ORDER BY un.createdAt DESC")
         List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);
@@ -99,4 +104,6 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         "AND cn.id IS NULL")
         List<UserNewsletter> findUncollectedNewsletters(@Param("userId") Long userId,
                         @Param("depthType") DepthType depthType);
+
+        boolean existsByUserIdAndNewsletter_LlmStatus(Long userId, LlmStatus llmStatus);
 }
