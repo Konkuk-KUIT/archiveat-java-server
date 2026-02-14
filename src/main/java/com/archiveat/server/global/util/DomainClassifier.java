@@ -39,8 +39,9 @@ public class DomainClassifier {
         }
 
         try {
+            String normalizedUrl = UrlNormalizer.normalize(url);
             // URL 유효성 검증
-            URI uri = new URI(url);
+            URI uri = new URI(normalizedUrl);
             String host = uri.getHost();
 
             if (host == null) {
@@ -49,28 +50,28 @@ public class DomainClassifier {
             }
 
             // 패턴 매칭으로 도메인 분류
-            if (YOUTUBE_PATTERN.matcher(url).matches()) {
-                log.info("Classified as YOUTUBE: {}", url);
+            if (YOUTUBE_PATTERN.matcher(normalizedUrl).matches()) {
+                log.info("Classified as YOUTUBE: {}", normalizedUrl);
                 return DomainType.YOUTUBE;
             }
 
-            if (NAVER_NEWS_PATTERN.matcher(url).matches()) {
-                log.info("Classified as NAVER_NEWS: {}", url);
+            if (NAVER_NEWS_PATTERN.matcher(normalizedUrl).matches()) {
+                log.info("Classified as NAVER_NEWS: {}", normalizedUrl);
                 return DomainType.NAVER_NEWS;
             }
 
-            if (TISTORY_PATTERN.matcher(url).matches()) {
-                log.info("Classified as TISTORY: {}", url);
+            if (TISTORY_PATTERN.matcher(normalizedUrl).matches()) {
+                log.info("Classified as TISTORY: {}", normalizedUrl);
                 return DomainType.TISTORY;
             }
 
-            if (BRUNCH_PATTERN.matcher(url).matches()) {
-                log.info("Classified as BRUNCH: {}", url);
+            if (BRUNCH_PATTERN.matcher(normalizedUrl).matches()) {
+                log.info("Classified as BRUNCH: {}", normalizedUrl);
                 return DomainType.BRUNCH;
             }
 
             // 매칭되지 않으면 일반 웹사이트
-            log.info("Classified as GENERAL: {}", url);
+            log.info("Classified as GENERAL: {}", normalizedUrl);
             return DomainType.GENERAL;
 
         } catch (Exception e) {

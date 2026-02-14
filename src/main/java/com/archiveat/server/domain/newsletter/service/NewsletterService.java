@@ -25,6 +25,8 @@ import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.lock.DistributedLockService;
 import com.archiveat.server.global.security.TokenHashUtil;
 import com.archiveat.server.global.util.DomainClassifier;
+import com.archiveat.server.global.util.UrlNormalizer;
+import com.archiveat.server.global.util.UrlRedirectResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
@@ -65,6 +67,7 @@ public class NewsletterService {
     private final DistributedLockService distributedLockService;
     private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
+    private final UrlRedirectResolver urlRedirectResolver;
 
     private final TransactionTemplate transactionTemplate;
 
@@ -175,14 +178,21 @@ public class NewsletterService {
     @Transactional
     public GenerateNewsletterResponse generateNewsletter(Long userId, String contentUrl, String memo) {
         // [Concurrency Fix] 별도 트랜잭션으로 처리하여 Main TX 롤백 방지
-        String domainName = normalizeDomainName(extractDomainName(contentUrl));
+        String normalizedUrl = UrlNormalizer.normalize(contentUrl);
+        log.info("*********** Normalized URL: {} ***********", normalizedUrl);
+        normalizedUrl = urlRedirectResolver.resolveIfShortUrl(normalizedUrl);
+        log.info("*********** Normalized URL: {} ***********", normalizedUrl);
+        // 리다이렉트 이후 다시 한 번 언랩 (link.naver.com/bridge 등)
+        normalizedUrl = UrlNormalizer.normalize(normalizedUrl);
+        log.info("*********** Normalized URL: {} ***********", normalizedUrl);
+        String domainName = normalizeDomainName(extractDomainName(normalizedUrl));
         Domain domain = newsletterSynchronizer.getOrCreateDomain(domainName);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // [Concurrency Fix] 별도 트랜잭션으로 처리
-        Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, contentUrl);
+        Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, normalizedUrl);
 
         if (userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)) {
             throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
@@ -212,7 +222,7 @@ public class NewsletterService {
                 throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
             }
             Long newsletterId = newsletter.getId();
-            applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
+            applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, normalizedUrl));
             log.info("Newsletter event published: newsletterId={}", newsletterId);
         }
 
