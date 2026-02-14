@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.archiveat.server.global.common.constant.DateTimeConstant.*;
@@ -65,8 +66,10 @@ public class ExploreService {
                                                                 .collect(Collectors.toList())))
                                 .collect(Collectors.toList());
 
-                // 5. LLM 상태 결정 기본값 DONE
-                LlmStatus currentStatus = LlmStatus.DONE; // todo: 유저별 LLM 상태 로직 추가
+                // 5. LLM 상태 결정
+                boolean hasRunningNewsletter = userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId,
+                                LlmStatus.RUNNING);
+                LlmStatus currentStatus = hasRunningNewsletter ? LlmStatus.RUNNING : LlmStatus.DONE;
 
                 return new ExploreResponse(inboxCount, currentStatus, categories);
         }
@@ -150,12 +153,16 @@ public class ExploreService {
                         Map<String, InboxResponse.TopicDto> topicMap) {
                 Newsletter n = un.getNewsletter();
 
-                InboxResponse.CategoryDto categoryDto = (n.getLlmStatus() == LlmStatus.DONE)
-                                ? categoryMap.getOrDefault(n.getCategory(), new InboxResponse.CategoryDto(null, null))
+                InboxResponse.CategoryDto categoryDto = (n.getLlmStatus() == LlmStatus.DONE && un.getCategory() != null)
+                                ? categoryMap.getOrDefault(un.getCategory().getName(),
+                                                new InboxResponse.CategoryDto(un.getCategory().getId(),
+                                                                un.getCategory().getName()))
                                 : new InboxResponse.CategoryDto(null, null);
 
-                InboxResponse.TopicDto topicDto = (n.getLlmStatus() == LlmStatus.DONE)
-                                ? topicMap.getOrDefault(n.getTopic(), new InboxResponse.TopicDto(null, null))
+                InboxResponse.TopicDto topicDto = (n.getLlmStatus() == LlmStatus.DONE && un.getTopic() != null)
+                                ? topicMap.getOrDefault(un.getTopic().getName(),
+                                                new InboxResponse.TopicDto(un.getTopic().getId(),
+                                                                un.getTopic().getName()))
                                 : new InboxResponse.TopicDto(null, null);
 
                 return InboxResponse.InboxItemDto.builder()
@@ -196,11 +203,10 @@ public class ExploreService {
                 }
 
                 // 3. 엔티티 상태를 업데이트합니다. (도메인 메서드 활용)
-                userNewsletter.updateClassification(request.memo());
+                userNewsletter.updateClassification(category, topic, request.memo());
 
-                // 4. 원본 Newsletter의 분류 정보도 사용자가 수정한 값으로 동기화합니다.
+                // 4. 원본 Newsletter의 분류 정보 업데이트 제거 (개별화)
                 Newsletter newsletter = userNewsletter.getNewsletter();
-                newsletter.updateCategoryAndTopic(category.getName(), topic.getName());
 
                 // 5. 응답 DTO 조립
                 return ClassificationResponse.builder()
@@ -233,11 +239,11 @@ public class ExploreService {
                 Newsletter newsletter = userNewsletter.getNewsletter();
 
                 // 2. 현재 설정된 카테고리/토픽의 ID 조회 (String -> Long)
-                Long currentCategoryId = categoryRepository.findByName(newsletter.getCategory())
+                Long currentCategoryId = Optional.ofNullable(userNewsletter.getCategory())
                                 .map(Category::getId)
                                 .orElse(null);
 
-                Long currentTopicId = topicRepository.findByName(newsletter.getTopic())
+                Long currentTopicId = Optional.ofNullable(userNewsletter.getTopic())
                                 .map(Topic::getId)
                                 .orElse(null);
 

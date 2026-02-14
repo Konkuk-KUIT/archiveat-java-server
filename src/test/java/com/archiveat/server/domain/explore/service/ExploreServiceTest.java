@@ -71,10 +71,12 @@ class ExploreServiceTest {
 
         // 토픽별 뉴스레터 개수 데이터 설정
         List<Object[]> mockTopicCounts = new ArrayList<>();
-        mockTopicCounts.add(new Object[]{101L, 5L}); // AI 토픽(101)에 5개
+        mockTopicCounts.add(new Object[] { 101L, 5L }); // AI 토픽(101)에 5개
 
         when(userNewsletterRepository.countByUserIdAndIsConfirmedFalse(userId)).thenReturn(3);
         when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(mockTopicCounts);
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
+                .thenReturn(false);
 
         // when
         ExploreResponse response = exploreService.getExploreData(userId);
@@ -82,7 +84,8 @@ class ExploreServiceTest {
         // then
         assertSoftly(softly -> {
             softly.assertThat(response.inboxCount()).as("인박스 미확인 개수").isEqualTo(3);
-            softly.assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE); // TODO: Service쪽에 현재 DONE으로만 반환하도록 하드코딩 되어있음
+            softly.assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE); // TODO: Service쪽에 현재 DONE으로만 반환하도록 하드코딩
+                                                                               // 되어있음
 
             // 카테고리 검증
             softly.assertThat(response.categories()).hasSize(1);
@@ -193,11 +196,20 @@ class ExploreServiceTest {
         // 1. 분석 완료된 뉴스레터
         Newsletter doneN = mock(Newsletter.class);
         when(doneN.getLlmStatus()).thenReturn(LlmStatus.DONE);
-        when(doneN.getCategory()).thenReturn("IT");
-        when(doneN.getTopic()).thenReturn("AI");
         UserNewsletter unDone = mock(UserNewsletter.class);
         when(unDone.getNewsletter()).thenReturn(doneN);
         when(unDone.getCreatedAt()).thenReturn(now);
+
+        // Mock UserNewsletter category/topic
+        Category mockCat = mock(Category.class);
+        when(mockCat.getName()).thenReturn("IT");
+        when(mockCat.getId()).thenReturn(1L);
+        when(unDone.getCategory()).thenReturn(mockCat);
+
+        Topic mockTopic = mock(Topic.class);
+        when(mockTopic.getName()).thenReturn("AI");
+        when(mockTopic.getId()).thenReturn(10L);
+        when(unDone.getTopic()).thenReturn(mockTopic);
 
         // 2. 분석 중인 뉴스레터
         Newsletter runningN = mock(Newsletter.class);
@@ -274,8 +286,9 @@ class ExploreServiceTest {
 
         // then
         // verify를 사용해 엔티티 내부의 수정 메서드들이 실제로 호출되었는지 검증
-        verify(mockUn).updateClassification("메모 수정");
-        verify(mockN).updateCategoryAndTopic("경제", "주식");
+        verify(mockUn).updateClassification(newCat, newTop, "메모 수정");
+        // verify(mockN).updateCategoryAndTopic("경제", "주식"); // Removed as we don't
+        // update Newsletter anymore
         assertThat(response.category().name()).isEqualTo("경제");
     }
 
@@ -291,5 +304,41 @@ class ExploreServiceTest {
         // then
         verify(userNewsletterRepository)
                 .bulkConfirmByUserId(eq(userId), any(LocalDateTime.class), eq(LlmStatus.DONE));
+    }
+
+    @Test
+    @DisplayName("getExploreData returns RUNNING status when user has running newsletter")
+    void getExploreData_ReturnsRunningStatus_WhenRunningNewsletterExists() {
+        // given
+        Long userId = 1L;
+        when(userNewsletterRepository.countByUserIdAndIsConfirmedFalse(userId)).thenReturn(0);
+        when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(List.of());
+        when(categoryRepository.findAll()).thenReturn(List.of());
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
+                .thenReturn(true);
+
+        // when
+        ExploreResponse response = exploreService.getExploreData(userId);
+
+        // then
+        assertThat(response.llmStatus()).isEqualTo(LlmStatus.RUNNING);
+    }
+
+    @Test
+    @DisplayName("getExploreData returns DONE status when user has no running newsletter")
+    void getExploreData_ReturnsDoneStatus_WhenNoRunningNewsletterExists() {
+        // given
+        Long userId = 1L;
+        when(userNewsletterRepository.countByUserIdAndIsConfirmedFalse(userId)).thenReturn(0);
+        when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(List.of());
+        when(categoryRepository.findAll()).thenReturn(List.of());
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
+                .thenReturn(false);
+
+        // when
+        ExploreResponse response = exploreService.getExploreData(userId);
+
+        // then
+        assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE);
     }
 }

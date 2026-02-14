@@ -44,12 +44,12 @@ class ReportServiceTest {
                 List<UserNewsletter> readList = new ArrayList<>();
 
                 // Mock UserNewsletter (Reflection used as fields are private/protected)
-                UserNewsletter un1 = new UserNewsletter(null, null, null);
+                UserNewsletter un1 = new UserNewsletter(null, null, null, null, null);
                 ReflectionTestUtils.setField(un1, "depthType", DepthType.LIGHT);
                 ReflectionTestUtils.setField(un1, "perspectiveType", PerspectiveType.NOW);
                 savedList.add(un1);
 
-                UserNewsletter un2 = new UserNewsletter(null, null, null);
+                UserNewsletter un2 = new UserNewsletter(null, null, null, null, null);
                 ReflectionTestUtils.setField(un2, "depthType", DepthType.DEEP);
                 ReflectionTestUtils.setField(un2, "perspectiveType", PerspectiveType.FUTURE);
                 readList.add(un2);
@@ -86,7 +86,7 @@ class ReportServiceTest {
                 ReflectionTestUtils.setField(newsletter, "id", 100L);
                 ReflectionTestUtils.setField(newsletter, "category", "IT/Science");
 
-                UserNewsletter un = new UserNewsletter(User.builder().build(), newsletter, null);
+                UserNewsletter un = new UserNewsletter(User.builder().build(), newsletter, null, null, null);
                 ReflectionTestUtils.setField(un, "lastViewedAt", LocalDateTime.now());
 
                 recentReadList.add(un);

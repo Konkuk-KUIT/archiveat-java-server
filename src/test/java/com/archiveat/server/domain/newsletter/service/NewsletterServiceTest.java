@@ -49,7 +49,7 @@ class NewsletterServiceTest {
         ReflectionTestUtils.setField(newsletter, "topic", "Topic");
         ReflectionTestUtils.setField(newsletter, "thumbnailUrl", "http://thumb.url");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, "Memo");
+        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
         ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
@@ -79,7 +79,7 @@ class NewsletterServiceTest {
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
         ReflectionTestUtils.setField(newsletter, "title", "Newsletter Title");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, "Memo");
+        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
         ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
