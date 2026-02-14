@@ -25,7 +25,12 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
         int deleteByIdAndUser_Id(Long id, Long userId);
 
-        Optional<UserNewsletter> findByIdAndUser_Id(Long id, Long userId);
+        @Query("SELECT un FROM UserNewsletter un " +
+                        "JOIN FETCH un.newsletter n " +
+                        "LEFT JOIN FETCH un.category " +
+                        "LEFT JOIN FETCH un.topic " +
+                        "WHERE un.id = :id AND un.user.id = :userId")
+        Optional<UserNewsletter> findByIdAndUser_Id(@Param("id") Long id, @Param("userId") Long userId);
 
         // 중복 뉴스레터 체크
         boolean existsByUserAndNewsletter(User user, Newsletter newsletter);
@@ -71,6 +76,8 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         @Query("SELECT un FROM UserNewsletter un " +
                         "JOIN FETCH un.newsletter n " +
                         "LEFT JOIN FETCH n.domain d " +
+                        "LEFT JOIN FETCH un.category " +
+                        "LEFT JOIN FETCH un.topic " +
                         "WHERE un.user.id = :userId AND un.isConfirmed = false " +
                         "ORDER BY un.createdAt DESC")
         List<UserNewsletter> findAllInboxByUserId(@Param("userId") Long userId);

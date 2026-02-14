@@ -106,10 +106,15 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
         return new ViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
                 label,
@@ -160,10 +165,15 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
         return new SimpleViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
                 label,
