@@ -149,7 +149,9 @@ public class NewsletterService {
         userNewsletterRepository.save(userNewsletter);
 
         Newsletter newsletter = userNewsletter.getNewsletter();
-        List<NewsletterSummaryBlock> summaryBlocks = List.of(); // Simple 뷰는 요약 없음
+        List<NewsletterSummaryBlock> allSummaryBlocks = parseNewsletterSummary(newsletter.getNewsletterSummary());
+        List<NewsletterSummaryBlock> summaryBlocks = allSummaryBlocks.isEmpty() ? List.of()
+                : List.of(allSummaryBlocks.get(0));
 
         String label = LabelFormatter.formatLabel(
                 userNewsletter.getDepthType(),
