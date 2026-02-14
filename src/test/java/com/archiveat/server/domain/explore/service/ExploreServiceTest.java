@@ -84,8 +84,7 @@ class ExploreServiceTest {
         // then
         assertSoftly(softly -> {
             softly.assertThat(response.inboxCount()).as("인박스 미확인 개수").isEqualTo(3);
-            softly.assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE); // TODO: Service쪽에 현재 DONE으로만 반환하도록 하드코딩
-                                                                               // 되어있음
+            softly.assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE);
 
             // 카테고리 검증
             softly.assertThat(response.categories()).hasSize(1);

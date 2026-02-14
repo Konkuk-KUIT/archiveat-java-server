@@ -433,7 +433,9 @@ public class NewsletterService {
 
             // [Safeguard] 유저가 이미 분류를 확정한 경우(isConfirmed=true)에는 덮어쓰지 않음
             if (!userNewsletter.isConfirmed()) {
-                userNewsletter.updateCategoryAndTopic(category, topic);
+                if (category != null && topic != null) {
+                    userNewsletter.updateCategoryAndTopic(category, topic);
+                }
             }
 
             userNewsletterRepository.save(userNewsletter);

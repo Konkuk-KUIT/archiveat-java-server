@@ -71,9 +71,6 @@ public class UserNewsletter extends BaseEntity {
     /**
      * 분류 정보 및 메모 업데이트
      */
-    /**
-     * 분류 정보 및 메모 업데이트
-     */
     public void updateClassification(Category category, Topic topic, String memo) {
         this.category = category;
         this.topic = topic;
