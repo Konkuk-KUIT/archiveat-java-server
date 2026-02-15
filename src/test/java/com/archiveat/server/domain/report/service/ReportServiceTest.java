@@ -106,4 +106,45 @@ class ReportServiceTest {
                 assertThat(response.recentReadNewsletters().get(0).title()).isEqualTo("Test Title");
                 assertThat(response.recentReadNewsletters().get(0).categoryName()).isEqualTo("IT/Science");
         }
+
+        @Test
+        @DisplayName("관심사 갭 분석 - 토픽 ID 및 카운트 검증")
+        void getGapAnalysis_ShouldReturnTopicIds() {
+                // given
+                Long userId = 1L;
+                Long topicId = 10L;
+                String topicName = "Economy";
+
+                com.archiveat.server.domain.explore.entity.Topic topic = com.archiveat.server.domain.explore.entity.Topic
+                                .builder()
+                                .name(topicName)
+                                .build();
+                ReflectionTestUtils.setField(topic, "id", topicId);
+
+                // Saved UserNewsletter with Topic
+                UserNewsletter savedUn = new UserNewsletter(null, null, null, topic, null);
+                ReflectionTestUtils.setField(savedUn, "createdAt", LocalDateTime.now());
+
+                // Read UserNewsletter with same Topic
+                UserNewsletter readUn = new UserNewsletter(null, null, null, topic, null);
+                ReflectionTestUtils.setField(readUn, "lastViewedAt", LocalDateTime.now());
+
+                List<UserNewsletter> savedList = List.of(savedUn, savedUn); // 2 saved
+                List<UserNewsletter> readList = List.of(readUn); // 1 read
+
+                when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
+                                .thenReturn(savedList);
+                when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
+                                .thenReturn(readList);
+
+                // when
+                var response = reportService.getGapAnalysis(userId);
+
+                // then
+                assertThat(response.topics()).hasSize(1);
+                assertThat(response.topics().get(0).id()).isEqualTo(topicId);
+                assertThat(response.topics().get(0).name()).isEqualTo(topicName);
+                assertThat(response.topics().get(0).savedCount()).isEqualTo(2);
+                assertThat(response.topics().get(0).readCount()).isEqualTo(1);
+        }
 }
