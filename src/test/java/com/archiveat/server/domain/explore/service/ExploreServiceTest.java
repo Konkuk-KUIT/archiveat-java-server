@@ -77,6 +77,8 @@ class ExploreServiceTest {
         when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(mockTopicCounts);
         when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
                 .thenReturn(false);
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.PENDING))
+                .thenReturn(false);
 
         // when
         ExploreResponse response = exploreService.getExploreData(userId);
@@ -324,7 +326,7 @@ class ExploreServiceTest {
     }
 
     @Test
-    @DisplayName("getExploreData returns DONE status when user has no running newsletter")
+    @DisplayName("getExploreData returns DONE status when user has no running or pending newsletter")
     void getExploreData_ReturnsDoneStatus_WhenNoRunningNewsletterExists() {
         // given
         Long userId = 1L;
@@ -333,11 +335,58 @@ class ExploreServiceTest {
         when(categoryRepository.findAll()).thenReturn(List.of());
         when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
                 .thenReturn(false);
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.PENDING))
+                .thenReturn(false);
 
         // when
         ExploreResponse response = exploreService.getExploreData(userId);
 
         // then
         assertThat(response.llmStatus()).isEqualTo(LlmStatus.DONE);
+    }
+
+    @Test
+    @DisplayName("getExploreData returns RUNNING status when user has pending newsletter")
+    void getExploreData_ReturnsRunningStatus_WhenPendingNewsletterExists() {
+        // given
+        Long userId = 1L;
+        when(userNewsletterRepository.countByUserIdAndIsConfirmedFalse(userId)).thenReturn(0);
+        when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(List.of());
+        when(categoryRepository.findAll()).thenReturn(List.of());
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
+                .thenReturn(false);
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.PENDING))
+                .thenReturn(true);
+
+        // when
+        ExploreResponse response = exploreService.getExploreData(userId);
+
+        // then
+        assertThat(response.llmStatus()).isEqualTo(LlmStatus.RUNNING);
+    }
+
+    @Test
+    @DisplayName("getExploreData handles null topic IDs without NPE")
+    void getExploreData_NullTopicInCount_NoException() {
+        // given
+        Long userId = 1L;
+
+        // topic이 null인 UserNewsletter가 있을 때 쿼리 결과에 null topicId 포함
+        List<Object[]> mockTopicCounts = new ArrayList<>();
+        mockTopicCounts.add(new Object[] { null, 2L }); // null topic (LLM 미처리)
+        mockTopicCounts.add(new Object[] { 101L, 3L }); // 정상 topic
+
+        when(userNewsletterRepository.countByUserIdAndIsConfirmedFalse(userId)).thenReturn(1);
+        when(userNewsletterRepository.countNewslettersByTopicForUser(userId)).thenReturn(mockTopicCounts);
+        when(categoryRepository.findAll()).thenReturn(List.of());
+        when(userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId, LlmStatus.RUNNING))
+                .thenReturn(true);
+
+        // when — NPE 없이 정상 동작해야 함
+        ExploreResponse response = exploreService.getExploreData(userId);
+
+        // then
+        assertThat(response.llmStatus()).isEqualTo(LlmStatus.RUNNING);
+        assertThat(response.inboxCount()).isEqualTo(1);
     }
 }
