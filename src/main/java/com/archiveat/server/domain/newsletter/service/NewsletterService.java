@@ -479,11 +479,11 @@ public class NewsletterService {
                         newsletter.getCategory());
                 userNewsletter.updateLabelComponents(perspectiveType, depthType);
 
-                // [Safeguard] 유저가 이미 분류를 확정한 경우(isConfirmed=true)에는 덮어쓰지 않음
-                if (!userNewsletter.isConfirmed()) {
-                    if (category != null && topic != null) {
-                        userNewsletter.updateCategoryAndTopic(category, topic);
-                    }
+                // topic이 아직 미할당이면 무조건 세팅
+                // (유저가 읽기(isConfirmed=true) 후 비동기 처리가 완료되는 경우 대응)
+                // 유저가 직접 분류를 변경한 경우(updateClassification)에는 topic이 이미 존재하므로 덮어쓰지 않음
+                if (category != null && topic != null && userNewsletter.getTopic() == null) {
+                    userNewsletter.updateCategoryAndTopic(category, topic);
                 }
             }
         });
