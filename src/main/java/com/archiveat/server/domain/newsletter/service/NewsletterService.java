@@ -352,15 +352,22 @@ public class NewsletterService {
     @Transactional
     protected void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
         try {
-            Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-            if (newsletter != null) {
-                newsletter.setErrorMessage(errorMessage);
-                newsletter.updateLlmStatus(LlmStatus.FAILED);
-                newsletterRepository.save(newsletter);
-                evictNewsletterCache(newsletterId, contentUrl);
-            }
-        } catch (Exception saveError) {
-            log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+            // 연관된 UserNewsletter 삭제
+            List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletterId);
+            userNewsletterRepository.deleteAll(userNewsletters);
+
+            // 연관된 TopicNewsletter 삭제
+            List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findAllByNewsletterId(newsletterId);
+            topicNewsletterRepository.deleteAll(topicNewsletters);
+
+            // Newsletter 삭제
+            newsletterRepository.deleteById(newsletterId);
+
+            evictNewsletterCache(newsletterId, contentUrl);
+            log.info("Deleted failed newsletter and associations: id={}, url={}", newsletterId, contentUrl);
+
+        } catch (Exception e) {
+            log.error("Failed to delete failed newsletter {}", newsletterId, e);
         }
     }
 
@@ -406,50 +413,54 @@ public class NewsletterService {
     // --- Label Calculation (Bulk Optimized) ---
 
     private void updateLabelComponentsForAllUsers(Newsletter newsletter) {
-        List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
-        if (userNewsletters.isEmpty())
-            return;
+        transactionTemplate.executeWithoutResult(status -> {
+            List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
+            if (userNewsletters.isEmpty())
+                return;
 
-        DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
+            DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
 
-        // 1. User IDs 추출
-        List<Long> userIds = userNewsletters.stream()
-                .map(un -> un.getUser().getId())
-                .distinct()
-                .collect(Collectors.toList());
+            // 1. User IDs 추출
+            List<Long> userIds = userNewsletters.stream()
+                    .map(un -> un.getUser().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
 
-        // 2. Bulk Fetch (N+1 문제 해결)
-        List<Object[]> userTopics = userTopicRepository.findCategoryNamesByUserIdsAndPerspectiveType(userIds,
-                PerspectiveType.NOW);
+            // 2. Bulk Fetch (N+1 문제 해결)
+            List<Object[]> userTopics = userTopicRepository.findCategoryNamesByUserIdsAndPerspectiveType(userIds,
+                    PerspectiveType.NOW);
 
-        // 3. Map 변환 (UserId -> List<CategoryName>)
-        Map<Long, List<String>> userTopicMap = userTopics.stream()
-                .collect(Collectors.groupingBy(
-                        row -> (Long) row[0],
-                        Collectors.mapping(row -> (String) row[1], Collectors.toList())));
+            // 3. Map 변환 (UserId -> List<CategoryName>)
+            Map<Long, List<String>> userTopicMap = userTopics.stream()
+                    .collect(Collectors.groupingBy(
+                            row -> (Long) row[0],
+                            Collectors.mapping(row -> (String) row[1], Collectors.toList())));
 
-        // 4. Update Loop (DB 조회 없이 메모리에서 처리)
-        // [Refactor] Newsletter의 토픽/카테고리를 UserNewsletter에 반영
-        Category category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
-        Topic topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
-
-        for (UserNewsletter userNewsletter : userNewsletters) {
-            Long userId = userNewsletter.getUser().getId();
-            List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
-
-            PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(nowCategories,
-                    newsletter.getCategory());
-            userNewsletter.updateLabelComponents(perspectiveType, depthType);
-
-            // [Safeguard] 유저가 이미 분류를 확정한 경우(isConfirmed=true)에는 덮어쓰지 않음
-            if (!userNewsletter.isConfirmed()) {
-                if (category != null && topic != null) {
-                    userNewsletter.updateCategoryAndTopic(category, topic);
-                }
+            // 4. Update Loop (DB 조회 없이 메모리에서 처리)
+            // [Refactor] Newsletter의 토픽/카테고리를 UserNewsletter에 반영
+            Category category = null;
+            Topic topic = null;
+            if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+                category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+                topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
             }
 
-            userNewsletterRepository.save(userNewsletter);
-        }
+            for (UserNewsletter userNewsletter : userNewsletters) {
+                Long userId = userNewsletter.getUser().getId();
+                List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
+
+                PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(nowCategories,
+                        newsletter.getCategory());
+                userNewsletter.updateLabelComponents(perspectiveType, depthType);
+
+                // [Safeguard] 유저가 이미 분류를 확정한 경우(isConfirmed=true)에는 덮어쓰지 않음
+                if (!userNewsletter.isConfirmed()) {
+                    if (category != null && topic != null) {
+                        userNewsletter.updateCategoryAndTopic(category, topic);
+                    }
+                }
+            }
+        });
     }
 
     private DepthType calculateDepthType(Integer consumptionTimeMin) {

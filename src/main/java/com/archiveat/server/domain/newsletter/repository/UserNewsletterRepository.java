@@ -58,10 +58,9 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
         /**
          * 특정 유저의 특정 토픽에 속한 뉴스레터 목록을 최신순으로 페이징 조회
-         * N+1 문제를 방지하기 위해 Newsletter 엔티티를 FETCH JOIN
+         * N+1 문제는 hibernate.default_batch_fetch_size 설정으로 완화 (연관 객체 접근 시 추가 쿼리 발생 가능)
          */
         @Query("SELECT un FROM UserNewsletter un " +
-                        "JOIN FETCH un.newsletter " +
                         "WHERE un.user.id = :userId AND un.topic.id = :topicId " +
                         "ORDER BY un.createdAt DESC")
         Slice<UserNewsletter> findByUserIdAndTopicId(
@@ -106,4 +105,14 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         @Param("depthType") DepthType depthType);
 
         boolean existsByUserIdAndNewsletter_LlmStatus(Long userId, LlmStatus llmStatus);
+
+        @Modifying(clearAutomatically = true)
+        @Query(value = "UPDATE user_newsletters " +
+                        "SET category_id = (SELECT c.id FROM newsletters n JOIN categories c ON c.name = n.category WHERE n.id = user_newsletters.newsletter_id), "
+                        +
+                        "topic_id = (SELECT t.id FROM newsletters n JOIN topics t ON t.name = n.topic WHERE n.id = user_newsletters.newsletter_id) "
+                        +
+                        "WHERE category_id IS NULL " +
+                        "AND EXISTS (SELECT 1 FROM newsletters n JOIN categories c ON c.name = n.category JOIN topics t ON t.name = n.topic WHERE n.id = user_newsletters.newsletter_id)", nativeQuery = true)
+        void bulkMigrateCategoryAndTopic();
 }
