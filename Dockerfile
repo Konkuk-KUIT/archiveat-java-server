@@ -32,10 +32,10 @@ RUN apk add --no-cache curl
 COPY --from=build /app/build/libs/*.jar app.jar
 
 # Health check 추가
-#HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-#    CMD curl -f http://localhost:8080/actuator/health || exit 1
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -fsS http://localhost:8080/ping || exit 1
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+#HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+#  CMD curl -fsS http://localhost:8080/ping || exit 1
 
 
 

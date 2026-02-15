@@ -41,6 +41,9 @@ public class SecurityConfig {
                                                 .authenticationEntryPoint(jwtAuthenticationEntryPoint))
                                 .authorizeHttpRequests(auth -> auth
                                                 // 공개 API
+                                        // ✅ 헬스체크는 인증 없이 허용
+                                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+
                                                 .requestMatchers("/auth/**").permitAll()
                                                 .requestMatchers("/archiveat-docs/**", "/v3/api-docs/**",
                                                                 "/swagger-ui/**", "/swagger-resources/**")
