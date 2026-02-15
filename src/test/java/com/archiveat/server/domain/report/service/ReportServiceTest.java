@@ -6,6 +6,7 @@ import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepositor
 import com.archiveat.server.domain.report.dto.response.ConsumptionResponse;
 import com.archiveat.server.domain.report.dto.response.WeeklyReportResponse;
 import com.archiveat.server.domain.user.entity.User;
+import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
 import org.junit.jupiter.api.DisplayName;
@@ -115,8 +116,7 @@ class ReportServiceTest {
                 Long topicId = 10L;
                 String topicName = "Economy";
 
-                com.archiveat.server.domain.explore.entity.Topic topic = com.archiveat.server.domain.explore.entity.Topic
-                                .builder()
+                Topic topic = Topic.builder()
                                 .name(topicName)
                                 .build();
                 ReflectionTestUtils.setField(topic, "id", topicId);
