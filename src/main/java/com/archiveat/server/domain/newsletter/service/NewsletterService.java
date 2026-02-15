@@ -291,7 +291,7 @@ public class NewsletterService {
             // 4. Newsletter 업데이트 (DONE 상태)
             saveNewsletterWithTopic(newsletter, response);
 
-            // 5. 캐시 무효화 (Stale Cache 방지) ⭐
+            // 5. 캐시 무효화 (Stale Cache 방지)
             evictNewsletterCache(newsletterId, contentUrl);
 
             // [Performance Fix] N+1 문제 해결된 Bulk Update 호출
