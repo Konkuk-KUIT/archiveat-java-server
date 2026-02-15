@@ -1,5 +1,6 @@
 package com.archiveat.server.global.config;
 
+import com.archiveat.server.global.jwt.JwtAuthenticationEntryPoint;
 import com.archiveat.server.global.jwt.JwtAuthenticationFilter;
 import com.archiveat.server.global.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,23 +26,28 @@ import org.springframework.http.HttpMethod;
 public class SecurityConfig {
 
         private final JwtUtil jwtUtil;
+        private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 return http
                                 .csrf(csrf -> csrf.disable()) // REST API면 보통 disable
-                                // 이전: SecurityFilterChain에 CORS 설정 없음
-                                // .cors(...) 없음
                                 .cors(Customizer.withDefaults())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .formLogin(form -> form.disable()) // 기본 /login 페이지 끄기
                                 .httpBasic(basic -> basic.disable()) // Basic 인증 요구 끄기
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(jwtAuthenticationEntryPoint))
                                 .authorizeHttpRequests(auth -> auth
+                                                // 공개 API
+                                                .requestMatchers("/auth/**").permitAll()
+                                                .requestMatchers("/archiveat-docs/**", "/v3/api-docs/**",
+                                                                "/swagger-ui/**", "/swagger-resources/**")
+                                                .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/user/metadata").permitAll()
-                                                .requestMatchers("/user/**").authenticated() // 온보딩 관련 /user 경로는 인증 필요
-                                                .anyRequest().permitAll() // 일단 전체 오픈(개발용)
-                                )
+                                                // 나머지 전부 인증 필수
+                                                .anyRequest().authenticated())
                                 .addFilterBefore(new JwtAuthenticationFilter(jwtUtil),
                                                 UsernamePasswordAuthenticationFilter.class)
                                 .build();
