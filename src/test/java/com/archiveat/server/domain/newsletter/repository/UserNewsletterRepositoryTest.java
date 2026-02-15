@@ -237,4 +237,37 @@ class UserNewsletterRepositoryTest {
                 assertThat(migratedUn.getTopic()).isNotNull();
                 assertThat(migratedUn.getTopic().getName()).isEqualTo("Stock");
         }
+
+        @Test
+        @DisplayName("[Reports] 주간 리포트 쿼리 검증 (JOIN FETCH 확인)")
+        void findByUserIdAndCreatedAtBetween_Success() {
+                // given
+                User user = User.builder().email("report@test.com").nickname("리포트유저").build();
+                em.persist(user);
+
+                Category cat = Category.builder().name("Economy").build();
+                em.persist(cat);
+                Topic topic = Topic.builder().name("Stock").category(cat).build();
+                em.persist(topic);
+
+                Newsletter newsletter = Newsletter.builder().title("Report News").contentUrl("url").build();
+                em.persist(newsletter);
+
+                UserNewsletter un = UserNewsletter.create(user, newsletter, cat, topic, "메모");
+                em.persist(un);
+
+                em.flush();
+                em.clear();
+
+                // when
+                List<UserNewsletter> results = userNewsletterRepository.findByUserIdAndCreatedAtBetween(
+                                user.getId(),
+                                LocalDateTime.now().minusDays(1),
+                                LocalDateTime.now().plusDays(1));
+
+                // then
+                assertThat(results).hasSize(1);
+                assertThat(results.get(0).getTopic()).isNotNull();
+                assertThat(results.get(0).getTopic().getName()).isEqualTo("Stock");
+        }
 }

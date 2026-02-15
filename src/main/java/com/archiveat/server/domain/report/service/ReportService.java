@@ -147,7 +147,7 @@ public class ReportService {
         // InterestGap을 TopicGap으로 변환
         List<GapAnalysisResponse.TopicGap> topicGaps = gaps.stream()
                 .map(gap -> new GapAnalysisResponse.TopicGap(
-                        null, // TODO: Topic ID 매핑 필요 시 로직 추가 필요
+                        gap.topicId(),
                         gap.topicName(),
                         gap.savedCount(),
                         gap.readCount()))
@@ -236,62 +236,42 @@ public class ReportService {
 
     /**
      * 관심사 갭 분석: |저장 - 읽음| 절댓값이 큰 순서로 Top 4
-     * Newsletter.topic 필드 사용 (null 허용)
+     * UserNewsletter.topic (Entity) 사용 (ID 포함)
      */
     private List<WeeklyReportResponse.InterestGap> calculateInterestGaps(
             List<UserNewsletter> savedThisWeek,
             List<UserNewsletter> readThisWeek) {
 
-        // 1. Newsletter ID → topic 매핑
-        Map<Long, String> newsletterTopicMap = new HashMap<>();
+        // 1. Topic별 saved/read 카운트 및 이름 집계
+        Map<Long, String> topicNames = new HashMap<>();
+        Map<Long, Integer> savedCounts = new HashMap<>();
+        Map<Long, Integer> readCounts = new HashMap<>();
 
-        // Saved에서 topic 수집
+        // Saved 집계
         for (UserNewsletter un : savedThisWeek) {
-            if (un.getNewsletter() != null && un.getNewsletter().getTopic() != null) {
-                newsletterTopicMap.put(un.getNewsletter().getId(), un.getNewsletter().getTopic());
+            if (un.getTopic() != null) {
+                Long topicId = un.getTopic().getId();
+                topicNames.putIfAbsent(topicId, un.getTopic().getName());
+                savedCounts.put(topicId, savedCounts.getOrDefault(topicId, 0) + 1);
             }
         }
 
-        // Read에서 topic 수집
+        // Read 집계
         for (UserNewsletter un : readThisWeek) {
-            if (un.getNewsletter() != null && un.getNewsletter().getTopic() != null) {
-                newsletterTopicMap.putIfAbsent(un.getNewsletter().getId(), un.getNewsletter().getTopic());
+            if (un.getTopic() != null) {
+                Long topicId = un.getTopic().getId();
+                topicNames.putIfAbsent(topicId, un.getTopic().getName());
+                readCounts.put(topicId, readCounts.getOrDefault(topicId, 0) + 1);
             }
         }
 
-        // 2. Topic별 saved/read 카운트 집계
-        Map<String, Integer> topicSavedCount = new HashMap<>();
-        Map<String, Integer> topicReadCount = new HashMap<>();
-
-        for (UserNewsletter un : savedThisWeek) {
-            if (un.getNewsletter() != null) {
-                String topic = newsletterTopicMap.get(un.getNewsletter().getId());
-                if (topic != null) {
-                    topicSavedCount.put(topic, topicSavedCount.getOrDefault(topic, 0) + 1);
-                }
-            }
-        }
-
-        for (UserNewsletter un : readThisWeek) {
-            if (un.getNewsletter() != null) {
-                String topic = newsletterTopicMap.get(un.getNewsletter().getId());
-                if (topic != null) {
-                    topicReadCount.put(topic, topicReadCount.getOrDefault(topic, 0) + 1);
-                }
-            }
-        }
-
-        // 3. 모든 topic 합치기
-        Set<String> allTopics = new HashSet<>();
-        allTopics.addAll(topicSavedCount.keySet());
-        allTopics.addAll(topicReadCount.keySet());
-
-        // 4. 절댓값 기준 정렬 후 상위 4개
-        return allTopics.stream()
-                .map(topic -> new WeeklyReportResponse.InterestGap(
-                        topic,
-                        topicSavedCount.getOrDefault(topic, 0),
-                        topicReadCount.getOrDefault(topic, 0)))
+        // 2. 결과 생성 및 정렬
+        return topicNames.keySet().stream()
+                .map(id -> new WeeklyReportResponse.InterestGap(
+                        id,
+                        topicNames.get(id),
+                        savedCounts.getOrDefault(id, 0),
+                        readCounts.getOrDefault(id, 0)))
                 .sorted((a, b) -> {
                     int absGapA = Math.abs(a.savedCount() - a.readCount());
                     int absGapB = Math.abs(b.savedCount() - b.readCount());
