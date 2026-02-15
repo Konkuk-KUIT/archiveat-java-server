@@ -360,7 +360,7 @@ public class NewsletterService {
 
             // 3. 만약 Fallback으로 다른 토픽이 선택되었다면, Newsletter의 문자열도 동기화
             if (!topic.getName().equals(topicName) || !topic.getCategory().getName().equals(categoryName)) {
-                log.warn("Re-mapped invalid topic/category '{} / {}' to '{} / {}'",
+                log.warn("Re-mapped invalid category/topic '{} / {}' to '{} / {}'",
                         categoryName, topicName,
                         topic.getCategory().getName(), topic.getName());
 
