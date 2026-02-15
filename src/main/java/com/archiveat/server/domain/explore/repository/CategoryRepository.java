@@ -13,8 +13,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     Optional<Category> findByName(String name);
 
     /**
-     * @EntityGraph를 사용하여 Category 조회 시 Topics를 FETCH JOIN
-     *               N+1 문제를 방지
+     * Category 조회 시 Topics를 JOIN FETCH하여
+     * N+1 문제를 방지
      */
     @Override
     @Query("SELECT DISTINCT c FROM Category c LEFT JOIN FETCH c.topics")

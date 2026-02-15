@@ -8,6 +8,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.List;
 
 @SpringBootTest
@@ -21,15 +23,11 @@ public class CategoryRepositoryTest {
     @Transactional
     public void testFindAllWithTopics() {
         List<Category> categories = categoryRepository.findAll();
-        System.out.println("=== Category Data Debug ===");
+        assertThat(categories).isNotEmpty();
+
         for (Category category : categories) {
-            System.out.println("Category: " + category.getName() + " (ID: " + category.getId() + ")");
-            List<Topic> topics = category.getTopics();
-            System.out.println("  Topics count: " + topics.size());
-            for (Topic topic : topics) {
-                System.out.println("    - Topic: " + topic.getName() + " (ID: " + topic.getId() + ")");
-            }
+            // topics가 lazy loading 없이 즉시 로딩되는지 검증
+            assertThat(category.getTopics()).isNotNull();
         }
-        System.out.println("===========================");
     }
 }
