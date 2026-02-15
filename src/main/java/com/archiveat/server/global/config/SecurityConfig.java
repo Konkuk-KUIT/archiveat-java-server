@@ -17,6 +17,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+import org.springframework.http.HttpMethod;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -36,7 +38,7 @@ public class SecurityConfig {
                                 .formLogin(form -> form.disable()) // 기본 /login 페이지 끄기
                                 .httpBasic(basic -> basic.disable()) // Basic 인증 요구 끄기
                                 .authorizeHttpRequests(auth -> auth
-
+                                                .requestMatchers(HttpMethod.GET, "/user/metadata").permitAll()
                                                 .requestMatchers("/user/**").authenticated() // 온보딩 관련 /user 경로는 인증 필요
                                                 .anyRequest().permitAll() // 일단 전체 오픈(개발용)
                                 )
