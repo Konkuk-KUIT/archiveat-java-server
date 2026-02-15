@@ -58,7 +58,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
         /**
          * 특정 유저의 특정 토픽에 속한 뉴스레터 목록을 최신순으로 페이징 조회
-         * N+1 문제는 hibernate.default_batch_fetch_size 설정으로 방지
+         * N+1 문제는 hibernate.default_batch_fetch_size 설정으로 완화 (연관 객체 접근 시 추가 쿼리 발생 가능)
          */
         @Query("SELECT un FROM UserNewsletter un " +
                         "WHERE un.user.id = :userId AND un.topic.id = :topicId " +

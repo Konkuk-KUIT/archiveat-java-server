@@ -438,8 +438,12 @@ public class NewsletterService {
 
             // 4. Update Loop (DB 조회 없이 메모리에서 처리)
             // [Refactor] Newsletter의 토픽/카테고리를 UserNewsletter에 반영
-            Category category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
-            Topic topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+            Category category = null;
+            Topic topic = null;
+            if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+                category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+                topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+            }
 
             for (UserNewsletter userNewsletter : userNewsletters) {
                 Long userId = userNewsletter.getUser().getId();
@@ -455,8 +459,6 @@ public class NewsletterService {
                         userNewsletter.updateCategoryAndTopic(category, topic);
                     }
                 }
-
-                userNewsletterRepository.save(userNewsletter);
             }
         });
     }
