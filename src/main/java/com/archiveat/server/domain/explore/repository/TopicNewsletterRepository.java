@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface TopicNewsletterRepository extends JpaRepository<TopicNewsletter, Long> {
     List<TopicNewsletter> findByNewsletterIdIn(List<Long> newsletterIds);
+
+    List<TopicNewsletter> findAllByNewsletterId(Long newsletterId);
 }

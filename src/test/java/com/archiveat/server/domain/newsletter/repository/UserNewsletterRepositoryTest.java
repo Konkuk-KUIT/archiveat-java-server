@@ -13,6 +13,7 @@ import com.archiveat.server.global.config.TestConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @Import({ JpaConfig.class, TestConfig.class })
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class UserNewsletterRepositoryTest {
 
         @Autowired
@@ -194,5 +196,45 @@ class UserNewsletterRepositoryTest {
                 Newsletter loadedNewsletter = em.find(Newsletter.class, newsletter.getId());
                 assertThat(loadedNewsletter.getCategory()).isEqualTo("IT");
                 assertThat(loadedNewsletter.getTopic()).isEqualTo("AI");
+        }
+
+        @Test
+        @DisplayName("[Migration] Bulk update category/topic from Newsletter to UserNewsletter")
+        void testBulkMigrateCategoryAndTopic() {
+                // given
+                User user = User.builder().email("migrate@test.com").nickname("MigrateUser").build();
+                em.persist(user);
+
+                Category cat = Category.builder().name("Economy").build();
+                em.persist(cat);
+                Topic topic = Topic.builder().name("Stock").category(cat).build();
+                em.persist(topic);
+
+                // Newsletter has category/topic names
+                Newsletter newsletter = Newsletter.builder()
+                                .title("Old Newsletter")
+                                .contentUrl("http://old.com")
+                                .build();
+                newsletter.updateCategoryAndTopic("Economy", "Stock");
+                em.persist(newsletter);
+
+                // UserNewsletter has NULL category/topic
+                UserNewsletter un = UserNewsletter.create(user, newsletter, null, null, "Old Memo");
+                em.persist(un);
+
+                em.flush();
+                em.clear();
+
+                // when
+                userNewsletterRepository.bulkMigrateCategoryAndTopic();
+                em.flush();
+                em.clear();
+
+                // then
+                UserNewsletter migratedUn = userNewsletterRepository.findById(un.getId()).get();
+                assertThat(migratedUn.getCategory()).isNotNull();
+                assertThat(migratedUn.getCategory().getName()).isEqualTo("Economy");
+                assertThat(migratedUn.getTopic()).isNotNull();
+                assertThat(migratedUn.getTopic().getName()).isEqualTo("Stock");
         }
 }

@@ -61,7 +61,6 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
          * N+1 문제를 방지하기 위해 Newsletter 엔티티를 FETCH JOIN
          */
         @Query("SELECT un FROM UserNewsletter un " +
-                        "JOIN FETCH un.newsletter " +
                         "WHERE un.user.id = :userId AND un.topic.id = :topicId " +
                         "ORDER BY un.createdAt DESC")
         Slice<UserNewsletter> findByUserIdAndTopicId(
@@ -106,4 +105,13 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         @Param("depthType") DepthType depthType);
 
         boolean existsByUserIdAndNewsletter_LlmStatus(Long userId, LlmStatus llmStatus);
+
+        @Modifying(clearAutomatically = true)
+        @Query(value = "UPDATE user_newsletters " +
+                        "SET category_id = (SELECT c.id FROM newsletters n JOIN categories c ON c.name = n.category WHERE n.id = user_newsletters.newsletter_id), "
+                        +
+                        "topic_id = (SELECT t.id FROM newsletters n JOIN topics t ON t.name = n.topic WHERE n.id = user_newsletters.newsletter_id) "
+                        +
+                        "WHERE category_id IS NULL", nativeQuery = true)
+        void bulkMigrateCategoryAndTopic();
 }

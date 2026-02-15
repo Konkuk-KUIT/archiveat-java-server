@@ -352,15 +352,22 @@ public class NewsletterService {
     @Transactional
     protected void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
         try {
-            Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-            if (newsletter != null) {
-                newsletter.setErrorMessage(errorMessage);
-                newsletter.updateLlmStatus(LlmStatus.FAILED);
-                newsletterRepository.save(newsletter);
-                evictNewsletterCache(newsletterId, contentUrl);
-            }
-        } catch (Exception saveError) {
-            log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+            // 연관된 UserNewsletter 삭제
+            List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletterId);
+            userNewsletterRepository.deleteAll(userNewsletters);
+
+            // 연관된 TopicNewsletter 삭제
+            List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findAllByNewsletterId(newsletterId);
+            topicNewsletterRepository.deleteAll(topicNewsletters);
+
+            // Newsletter 삭제
+            newsletterRepository.deleteById(newsletterId);
+
+            evictNewsletterCache(newsletterId, contentUrl);
+            log.info("Deleted failed newsletter and associations: id={}, url={}", newsletterId, contentUrl);
+
+        } catch (Exception e) {
+            log.error("Failed to delete failed newsletter {}", newsletterId, e);
         }
     }
 
