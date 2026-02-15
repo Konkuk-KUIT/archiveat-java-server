@@ -44,6 +44,7 @@ public class ExploreService {
                 // 2. 유저의 토픽별 뉴스레터 개수 조회 및 Map으로 변환 (Key: topicId, Value: count)
                 Map<Long, Long> topicCountMap = userNewsletterRepository.countNewslettersByTopicForUser(userId)
                                 .stream()
+                                .filter(obj -> obj[0] != null) // topic이 null인 UserNewsletter 제외 (LLM 미처리)
                                 .collect(Collectors.toMap(
                                                 obj -> ((Number) obj[0]).longValue(), // topicId
                                                 obj -> ((Number) obj[1]).longValue() // newsletterCount
@@ -66,10 +67,12 @@ public class ExploreService {
                                                                 .collect(Collectors.toList())))
                                 .collect(Collectors.toList());
 
-                // 5. LLM 상태 결정
-                boolean hasRunningNewsletter = userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId,
-                                LlmStatus.RUNNING);
-                LlmStatus currentStatus = hasRunningNewsletter ? LlmStatus.RUNNING : LlmStatus.DONE;
+                // 5. LLM 상태 결정 (PENDING 또는 RUNNING이면 처리 중으로 간주)
+                boolean hasPendingOrRunning = userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId,
+                                LlmStatus.RUNNING)
+                                || userNewsletterRepository.existsByUserIdAndNewsletter_LlmStatus(userId,
+                                                LlmStatus.PENDING);
+                LlmStatus currentStatus = hasPendingOrRunning ? LlmStatus.RUNNING : LlmStatus.DONE;
 
                 return new ExploreResponse(inboxCount, currentStatus, categories);
         }
