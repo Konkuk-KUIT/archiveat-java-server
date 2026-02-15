@@ -36,11 +36,15 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
         boolean existsByUserAndNewsletter(User user, Newsletter newsletter);
 
         // 주간 리포트: 기간 내 저장된 뉴스레터
-        List<UserNewsletter> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
+        @Query("SELECT un FROM UserNewsletter un LEFT JOIN FETCH un.topic WHERE un.user.id = :userId AND un.createdAt BETWEEN :start AND :end")
+        List<UserNewsletter> findByUserIdAndCreatedAtBetween(@Param("userId") Long userId,
+                        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
         // 주간 리포트: 기간 내 읽은 뉴스레터
-        List<UserNewsletter> findByUserIdAndLastViewedAtBetweenAndIsReadTrue(Long userId, LocalDateTime start,
-                        LocalDateTime end);
+        @Query("SELECT un FROM UserNewsletter un LEFT JOIN FETCH un.topic WHERE un.user.id = :userId AND un.lastViewedAt BETWEEN :start AND :end AND un.isRead = true")
+        List<UserNewsletter> findByUserIdAndLastViewedAtBetweenAndIsReadTrue(@Param("userId") Long userId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
         // 최근 읽은 뉴스레터 목록 (정렬)
         List<UserNewsletter> findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(Long userId);
