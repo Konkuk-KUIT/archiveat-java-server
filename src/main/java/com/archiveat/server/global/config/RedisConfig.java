@@ -38,7 +38,7 @@ public class RedisConfig {
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // ⭐ 타입 정보를 JSON에 포함시켜 역직렬화 시 정확한 클래스로 변환
+        // 타입 정보를 JSON에 포함시켜 역직렬화 시 정확한 클래스로 변환
         // 이것이 없으면 LinkedHashMap으로 역직렬화됨
         objectMapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
