@@ -58,7 +58,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
 
         /**
          * 특정 유저의 특정 토픽에 속한 뉴스레터 목록을 최신순으로 페이징 조회
-         * N+1 문제를 방지하기 위해 Newsletter 엔티티를 FETCH JOIN
+         * N+1 문제는 hibernate.default_batch_fetch_size 설정으로 방지
          */
         @Query("SELECT un FROM UserNewsletter un " +
                         "WHERE un.user.id = :userId AND un.topic.id = :topicId " +
@@ -112,6 +112,7 @@ public interface UserNewsletterRepository extends JpaRepository<UserNewsletter, 
                         +
                         "topic_id = (SELECT t.id FROM newsletters n JOIN topics t ON t.name = n.topic WHERE n.id = user_newsletters.newsletter_id) "
                         +
-                        "WHERE category_id IS NULL", nativeQuery = true)
+                        "WHERE category_id IS NULL " +
+                        "AND EXISTS (SELECT 1 FROM newsletters n JOIN categories c ON c.name = n.category JOIN topics t ON t.name = n.topic WHERE n.id = user_newsletters.newsletter_id)", nativeQuery = true)
         void bulkMigrateCategoryAndTopic();
 }

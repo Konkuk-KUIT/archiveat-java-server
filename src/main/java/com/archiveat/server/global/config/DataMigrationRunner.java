@@ -17,8 +17,13 @@ public class DataMigrationRunner implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        log.info("Starting data migration for UserNewsletter category/topic...");
-        userNewsletterRepository.bulkMigrateCategoryAndTopic();
-        log.info("Data migration completed.");
+        try {
+            log.info("Starting data migration for UserNewsletter category/topic...");
+            userNewsletterRepository.bulkMigrateCategoryAndTopic();
+            log.info("Data migration completed.");
+        } catch (Exception e) {
+            log.error("Data migration failed", e);
+            // Do not rethrow to prevent application startup failure
+        }
     }
 }
