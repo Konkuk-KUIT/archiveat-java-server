@@ -291,7 +291,7 @@ public class NewsletterService {
             // 4. Newsletter 업데이트 (DONE 상태)
             saveNewsletterWithTopic(newsletter, response);
 
-            // 5. 캐시 무효화 (Stale Cache 방지) ⭐
+            // 5. 캐시 무효화 (Stale Cache 방지)
             evictNewsletterCache(newsletterId, contentUrl);
 
             // [Performance Fix] N+1 문제 해결된 Bulk Update 호출
@@ -338,12 +338,35 @@ public class NewsletterService {
                         "Analysis is null in response");
             }
 
+            // 1. Python 응답으로 Newsletter 업데이트 (Category/Topic 문자열 포함)
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
 
-            Topic topic = topicRepository
-                    .findByName(response.getAnalysis().getTopicName())
-                    .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+            String topicName = response.getAnalysis().getTopicName();
+            String categoryName = response.getAnalysis().getCategoryName();
+
+            // 2. Topic 엔티티 조회 (이름 + 카테고리 조합으로 조회)
+            Topic topic = topicRepository.findByNameAndCategory_Name(topicName, categoryName)
+                    .orElseGet(() -> {
+                        // [Fallback 1] 같은 카테고리의 '기타' 토픽 조회
+                        return topicRepository.findByNameAndCategory_Name("기타", categoryName)
+                                .orElseGet(() -> {
+                                    // [Fallback 2] 카테고리도 없는 경우 '생활' -> '기타'로 매핑 (안전장치)
+                                    // 사회, 정치 등 정의되지 않은 카테고리가 들어올 경우를 대비
+                                    return topicRepository.findByNameAndCategory_Name("기타", "생활")
+                                            .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+                                });
+                    });
+
+            // 3. 만약 Fallback으로 다른 토픽이 선택되었다면, Newsletter의 문자열도 동기화
+            if (!topic.getName().equals(topicName) || !topic.getCategory().getName().equals(categoryName)) {
+                log.warn("Re-mapped invalid category/topic '{} / {}' to '{} / {}'",
+                        categoryName, topicName,
+                        topic.getCategory().getName(), topic.getName());
+
+                newsletter.updateCategoryAndTopic(topic.getCategory().getName(), topic.getName());
+                newsletterRepository.save(newsletter);
+            }
 
             topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
         });
@@ -442,7 +465,10 @@ public class NewsletterService {
             Topic topic = null;
             if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
                 category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
-                topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+                if (category != null) {
+                    topic = topicRepository.findByNameAndCategory_Name(newsletter.getTopic(), category.getName())
+                            .orElse(null);
+                }
             }
 
             for (UserNewsletter userNewsletter : userNewsletters) {
