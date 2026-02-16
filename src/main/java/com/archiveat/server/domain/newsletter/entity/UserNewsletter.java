@@ -8,13 +8,14 @@ import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "user_newsletters", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "user_id", "newsletter_id" })
+        @UniqueConstraint(columnNames = {"user_id", "newsletter_id"})
 })
 public class UserNewsletter extends BaseEntity {
 
@@ -104,5 +105,20 @@ public class UserNewsletter extends BaseEntity {
     public void updateCategoryAndTopic(Category category, Topic topic) {
         this.category = category;
         this.topic = topic;
+    }
+
+    @Builder
+    public UserNewsletter(User user, Newsletter newsletter, Category category, Topic topic, String memo, PerspectiveType perspectiveType, DepthType depthType, boolean isRead, boolean isConfirmed, LocalDateTime lastViewedAt, LocalDateTime confirmedAt) {
+        this.user = user;
+        this.newsletter = newsletter;
+        this.category = category;
+        this.topic = topic;
+        this.memo = memo;
+        this.perspectiveType = perspectiveType;
+        this.depthType = depthType;
+        this.isRead = isRead;
+        this.isConfirmed = isConfirmed;
+        this.lastViewedAt = lastViewedAt;
+        this.confirmedAt = confirmedAt;
     }
 }
