@@ -1,9 +1,11 @@
 package com.archiveat.server.domain.newsletter.service;
 
 import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.TopicNewsletter;
 import com.archiveat.server.domain.explore.repository.TopicNewsletterRepository;
 import com.archiveat.server.domain.explore.repository.TopicRepository;
+import com.archiveat.server.domain.explore.repository.CategoryRepository;
 import com.archiveat.server.domain.newsletter.dto.response.*;
 import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
@@ -35,8 +37,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.global.common.constant.DateTimeConstant;
 
 import java.net.URI;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +67,7 @@ public class NewsletterService {
     private final NewsletterSynchronizer newsletterSynchronizer; // 동시성 제어용 컴포넌트
     private final TopicNewsletterRepository topicNewsletterRepository;
     private final TopicRepository topicRepository;
+    private final CategoryRepository categoryRepository;
 
     private final ApplicationEventPublisher applicationEventPublisher;
     private final DistributedLockService distributedLockService;
@@ -106,15 +112,28 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
+        String domainName = newsletter.getDomain() != null ? newsletter.getDomain().getName() : null;
+
         return new ViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
+                domainName,
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
+                userNewsletter.getCreatedAt() != null
+                        ? userNewsletter.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                .withZoneSameInstant(DateTimeConstant.APP_ZONE)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        : null,
                 summaryBlocks);
     }
 
@@ -160,15 +179,28 @@ public class NewsletterService {
                 userNewsletter.getDepthType(),
                 userNewsletter.getPerspectiveType());
 
+        String categoryName = userNewsletter.getCategory() != null ? userNewsletter.getCategory().getName()
+                : newsletter.getCategory();
+        String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
+                : newsletter.getTopic();
+
+        String domainName = newsletter.getDomain() != null ? newsletter.getDomain().getName() : null;
+
         return new SimpleViewNewsletterResponse(
                 userNewsletter.getId(),
-                newsletter.getCategory(),
-                newsletter.getTopic(),
+                categoryName,
+                topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
+                domainName,
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
+                userNewsletter.getCreatedAt() != null
+                        ? userNewsletter.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                .withZoneSameInstant(DateTimeConstant.APP_ZONE)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        : null,
                 summaryBlocks);
     }
 
@@ -191,11 +223,21 @@ public class NewsletterService {
             // [Concurrency Fix] 별도 트랜잭션으로 처리
             Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, normalizedUrl);
 
+
             if (userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)) {
                 throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
             }
+            
+            Category category = null;
+            Topic topic = null;
 
-            UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, memo);
+            if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+                category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+                topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+            }
+
+            UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, category, topic, memo);
+          
 
             // 이미 분석 완료된(DONE) 뉴스레터라면 바로 라벨 계산
             if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -283,7 +325,7 @@ public class NewsletterService {
             // 4. Newsletter 업데이트 (DONE 상태)
             saveNewsletterWithTopic(newsletter, response);
 
-            // 5. 캐시 무효화 (Stale Cache 방지) ⭐
+            // 5. 캐시 무효화 (Stale Cache 방지)
             evictNewsletterCache(newsletterId, contentUrl);
 
             // [Performance Fix] N+1 문제 해결된 Bulk Update 호출
@@ -330,12 +372,35 @@ public class NewsletterService {
                         "Analysis is null in response");
             }
 
+            // 1. Python 응답으로 Newsletter 업데이트 (Category/Topic 문자열 포함)
             newsletter.updateFromPythonResponse(response);
             newsletterRepository.save(newsletter);
 
-            Topic topic = topicRepository
-                    .findByName(response.getAnalysis().getTopicName())
-                    .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+            String topicName = response.getAnalysis().getTopicName();
+            String categoryName = response.getAnalysis().getCategoryName();
+
+            // 2. Topic 엔티티 조회 (이름 + 카테고리 조합으로 조회)
+            Topic topic = topicRepository.findByNameAndCategory_Name(topicName, categoryName)
+                    .orElseGet(() -> {
+                        // [Fallback 1] 같은 카테고리의 '기타' 토픽 조회
+                        return topicRepository.findByNameAndCategory_Name("기타", categoryName)
+                                .orElseGet(() -> {
+                                    // [Fallback 2] 카테고리도 없는 경우 '생활' -> '기타'로 매핑 (안전장치)
+                                    // 사회, 정치 등 정의되지 않은 카테고리가 들어올 경우를 대비
+                                    return topicRepository.findByNameAndCategory_Name("기타", "생활")
+                                            .orElseThrow(() -> new CustomException(ErrorCode.TOPIC_NOT_FOUND));
+                                });
+                    });
+
+            // 3. 만약 Fallback으로 다른 토픽이 선택되었다면, Newsletter의 문자열도 동기화
+            if (!topic.getName().equals(topicName) || !topic.getCategory().getName().equals(categoryName)) {
+                log.warn("Re-mapped invalid category/topic '{} / {}' to '{} / {}'",
+                        categoryName, topicName,
+                        topic.getCategory().getName(), topic.getName());
+
+                newsletter.updateCategoryAndTopic(topic.getCategory().getName(), topic.getName());
+                newsletterRepository.save(newsletter);
+            }
 
             topicNewsletterRepository.save(new TopicNewsletter(topic, newsletter));
         });
@@ -344,15 +409,22 @@ public class NewsletterService {
     @Transactional
     protected void markNewsletterFailed(Long newsletterId, String contentUrl, String errorMessage) {
         try {
-            Newsletter newsletter = newsletterRepository.findById(newsletterId).orElse(null);
-            if (newsletter != null) {
-                newsletter.setErrorMessage(errorMessage);
-                newsletter.updateLlmStatus(LlmStatus.FAILED);
-                newsletterRepository.save(newsletter);
-                evictNewsletterCache(newsletterId, contentUrl);
-            }
-        } catch (Exception saveError) {
-            log.error("Failed to save error status for newsletter {}", newsletterId, saveError);
+            // 연관된 UserNewsletter 삭제
+            List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletterId);
+            userNewsletterRepository.deleteAll(userNewsletters);
+
+            // 연관된 TopicNewsletter 삭제
+            List<TopicNewsletter> topicNewsletters = topicNewsletterRepository.findAllByNewsletterId(newsletterId);
+            topicNewsletterRepository.deleteAll(topicNewsletters);
+
+            // Newsletter 삭제
+            newsletterRepository.deleteById(newsletterId);
+
+            evictNewsletterCache(newsletterId, contentUrl);
+            log.info("Deleted failed newsletter and associations: id={}, url={}", newsletterId, contentUrl);
+
+        } catch (Exception e) {
+            log.error("Failed to delete failed newsletter {}", newsletterId, e);
         }
     }
 
@@ -398,38 +470,57 @@ public class NewsletterService {
     // --- Label Calculation (Bulk Optimized) ---
 
     private void updateLabelComponentsForAllUsers(Newsletter newsletter) {
-        List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
-        if (userNewsletters.isEmpty())
-            return;
+        transactionTemplate.executeWithoutResult(status -> {
+            List<UserNewsletter> userNewsletters = userNewsletterRepository.findAllByNewsletter_Id(newsletter.getId());
+            if (userNewsletters.isEmpty())
+                return;
 
-        DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
+            DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
 
-        // 1. User IDs 추출
-        List<Long> userIds = userNewsletters.stream()
-                .map(un -> un.getUser().getId())
-                .distinct()
-                .collect(Collectors.toList());
+            // 1. User IDs 추출
+            List<Long> userIds = userNewsletters.stream()
+                    .map(un -> un.getUser().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
 
-        // 2. Bulk Fetch (N+1 문제 해결)
-        List<Object[]> userTopics = userTopicRepository.findCategoryNamesByUserIdsAndPerspectiveType(userIds,
-                PerspectiveType.NOW);
+            // 2. Bulk Fetch (N+1 문제 해결)
+            List<Object[]> userTopics = userTopicRepository.findCategoryNamesByUserIdsAndPerspectiveType(userIds,
+                    PerspectiveType.NOW);
 
-        // 3. Map 변환 (UserId -> List<CategoryName>)
-        Map<Long, List<String>> userTopicMap = userTopics.stream()
-                .collect(Collectors.groupingBy(
-                        row -> (Long) row[0],
-                        Collectors.mapping(row -> (String) row[1], Collectors.toList())));
+            // 3. Map 변환 (UserId -> List<CategoryName>)
+            Map<Long, List<String>> userTopicMap = userTopics.stream()
+                    .collect(Collectors.groupingBy(
+                            row -> (Long) row[0],
+                            Collectors.mapping(row -> (String) row[1], Collectors.toList())));
 
-        // 4. Update Loop (DB 조회 없이 메모리에서 처리)
-        for (UserNewsletter userNewsletter : userNewsletters) {
-            Long userId = userNewsletter.getUser().getId();
-            List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
+            // 4. Update Loop (DB 조회 없이 메모리에서 처리)
+            // [Refactor] Newsletter의 토픽/카테고리를 UserNewsletter에 반영
+            Category category = null;
+            Topic topic = null;
+            if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+                category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+                if (category != null) {
+                    topic = topicRepository.findByNameAndCategory_Name(newsletter.getTopic(), category.getName())
+                            .orElse(null);
+                }
+            }
 
-            PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(nowCategories,
-                    newsletter.getCategory());
-            userNewsletter.updateLabelComponents(perspectiveType, depthType);
-            userNewsletterRepository.save(userNewsletter);
-        }
+            for (UserNewsletter userNewsletter : userNewsletters) {
+                Long userId = userNewsletter.getUser().getId();
+                List<String> nowCategories = userTopicMap.getOrDefault(userId, List.of());
+
+                PerspectiveType perspectiveType = calculatePerspectiveTypeWithCache(nowCategories,
+                        newsletter.getCategory());
+                userNewsletter.updateLabelComponents(perspectiveType, depthType);
+
+                // topic이 아직 미할당이면 무조건 세팅
+                // (유저가 읽기(isConfirmed=true) 후 비동기 처리가 완료되는 경우 대응)
+                // 유저가 직접 분류를 변경한 경우(updateClassification)에는 topic이 이미 존재하므로 덮어쓰지 않음
+                if (category != null && topic != null && userNewsletter.getTopic() == null) {
+                    userNewsletter.updateCategoryAndTopic(category, topic);
+                }
+            }
+        });
     }
 
     private DepthType calculateDepthType(Integer consumptionTimeMin) {

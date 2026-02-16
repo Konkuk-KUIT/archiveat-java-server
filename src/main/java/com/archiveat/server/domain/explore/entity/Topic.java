@@ -15,11 +15,11 @@ public class Topic {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String name; // 주식, AI ...
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-
-    private String name; // 주식, AI ...
 
     @Builder
     public Topic(String name, Category category) {

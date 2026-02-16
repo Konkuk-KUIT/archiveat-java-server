@@ -4,15 +4,18 @@ import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.BaseEntity;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.domain.explore.entity.Category;
+import com.archiveat.server.domain.explore.entity.Topic;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "user_newsletters", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "user_id", "newsletter_id" })
+        @UniqueConstraint(columnNames = {"user_id", "newsletter_id"})
 })
 public class UserNewsletter extends BaseEntity {
 
@@ -28,6 +31,14 @@ public class UserNewsletter extends BaseEntity {
     @JoinColumn(name = "newsletter_id")
     private Newsletter newsletter;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_id")
+    private Topic topic;
+
     @Column(columnDefinition = "TEXT")
     private String memo;
 
@@ -42,9 +53,11 @@ public class UserNewsletter extends BaseEntity {
     private LocalDateTime lastViewedAt;
     private LocalDateTime confirmedAt;
 
-    public UserNewsletter(User user, Newsletter newsletter, String memo) {
+    public UserNewsletter(User user, Newsletter newsletter, Category category, Topic topic, String memo) {
         this.user = user;
         this.newsletter = newsletter;
+        this.category = category;
+        this.topic = topic;
         this.memo = memo;
         this.perspectiveType = null;
         this.depthType = null;
@@ -52,14 +65,16 @@ public class UserNewsletter extends BaseEntity {
         this.isConfirmed = false;
     }
 
-    public static UserNewsletter create(User user, Newsletter newsletter, String memo) {
-        return new UserNewsletter(user, newsletter, memo);
+    public static UserNewsletter create(User user, Newsletter newsletter, Category category, Topic topic, String memo) {
+        return new UserNewsletter(user, newsletter, category, topic, memo);
     }
 
     /**
      * 분류 정보 및 메모 업데이트
      */
-    public void updateClassification(String memo) {
+    public void updateClassification(Category category, Topic topic, String memo) {
+        this.category = category;
+        this.topic = topic;
         this.memo = memo;
         this.isConfirmed = true;
         this.confirmedAt = LocalDateTime.now();
@@ -85,5 +100,25 @@ public class UserNewsletter extends BaseEntity {
     public void updateLabelComponents(PerspectiveType perspectiveType, DepthType depthType) {
         this.perspectiveType = perspectiveType;
         this.depthType = depthType;
+    }
+
+    public void updateCategoryAndTopic(Category category, Topic topic) {
+        this.category = category;
+        this.topic = topic;
+    }
+
+    @Builder
+    public UserNewsletter(User user, Newsletter newsletter, Category category, Topic topic, String memo, PerspectiveType perspectiveType, DepthType depthType, boolean isRead, boolean isConfirmed, LocalDateTime lastViewedAt, LocalDateTime confirmedAt) {
+        this.user = user;
+        this.newsletter = newsletter;
+        this.category = category;
+        this.topic = topic;
+        this.memo = memo;
+        this.perspectiveType = perspectiveType;
+        this.depthType = depthType;
+        this.isRead = isRead;
+        this.isConfirmed = isConfirmed;
+        this.lastViewedAt = lastViewedAt;
+        this.confirmedAt = confirmedAt;
     }
 }

@@ -8,9 +8,10 @@ public record SimpleViewNewsletterResponse(
         String topicName,
         String title,
         String thumbnailUrl,
+        String domainName,
         String label,
         String memo,
         String contentUrl,
-        List<NewsletterSummaryBlock> newsletterSimpleSummary
-) {
+        String createdAt,
+        List<NewsletterSummaryBlock> newsletterSimpleSummary) {
 }

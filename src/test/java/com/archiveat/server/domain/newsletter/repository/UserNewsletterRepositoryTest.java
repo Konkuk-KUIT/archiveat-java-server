@@ -13,6 +13,7 @@ import com.archiveat.server.global.config.TestConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @Import({ JpaConfig.class, TestConfig.class })
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class UserNewsletterRepositoryTest {
 
         @Autowired
@@ -64,7 +66,7 @@ class UserNewsletterRepositoryTest {
                                 .build();
                 em.persist(tn);
 
-                UserNewsletter un = UserNewsletter.create(user, newsletter, "메모");
+                UserNewsletter un = UserNewsletter.create(user, newsletter, cat, topic, "메모");
                 em.persist(un);
 
                 em.flush();
@@ -93,10 +95,10 @@ class UserNewsletterRepositoryTest {
                 em.persist(n2);
 
                 // n1은 확인 완료(isConfirmed=true), n2는 미확인(isConfirmed=false)으로 생성
-                UserNewsletter un1 = UserNewsletter.create(user, n1, "확인함");
-                un1.updateClassification("분류확정");
+                UserNewsletter un1 = UserNewsletter.create(user, n1, null, null, "확인함");
+                un1.updateClassification(null, null, "분류확정");
 
-                UserNewsletter un2 = UserNewsletter.create(user, n2, "미확인");
+                UserNewsletter un2 = UserNewsletter.create(user, n2, null, null, "미확인");
 
                 em.persist(un1);
                 em.persist(un2);
@@ -123,7 +125,7 @@ class UserNewsletterRepositoryTest {
                                 .build();
                 em.persist(n);
 
-                UserNewsletter un = UserNewsletter.create(user, n, "벌크테스트");
+                UserNewsletter un = UserNewsletter.create(user, n, null, null, "벌크테스트");
                 em.persist(un);
                 em.flush();
                 em.clear();
@@ -136,5 +138,136 @@ class UserNewsletterRepositoryTest {
                 // then
                 UserNewsletter updatedUn = userNewsletterRepository.findById(un.getId()).get();
                 assertThat(updatedUn.isConfirmed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("[Isolation] User A updates classification, User B remains unaffected")
+        void testClassificationIsolation() {
+                // given
+                User userA = User.builder().email("a@test.com").nickname("UserA").build();
+                User userB = User.builder().email("b@test.com").nickname("UserB").build();
+                em.persist(userA);
+                em.persist(userB);
+
+                Category catIT = Category.builder().name("IT").build();
+                Category catEco = Category.builder().name("Economy").build();
+                em.persist(catIT);
+                em.persist(catEco);
+
+                Topic topicAI = Topic.builder().name("AI").category(catIT).build();
+                Topic topicStock = Topic.builder().name("Stock").category(catEco).build();
+                em.persist(topicAI);
+                em.persist(topicStock);
+
+                Newsletter newsletter = Newsletter.builder()
+                                .title("Shared Newsletter")
+                                .contentUrl("http://shared.com")
+                                .build();
+                newsletter.updateCategoryAndTopic("IT", "AI"); // Set initial metadata
+                em.persist(newsletter);
+
+                // Both users start with IT/AI
+                UserNewsletter unA = UserNewsletter.create(userA, newsletter, catIT, topicAI, "Memo A");
+                UserNewsletter unB = UserNewsletter.create(userB, newsletter, catIT, topicAI, "Memo B");
+                em.persist(unA);
+                em.persist(unB);
+
+                em.flush();
+                em.clear();
+
+                // when: User A updates to Economy/Stock
+                UserNewsletter loadedUnA = userNewsletterRepository.findById(unA.getId()).get();
+                loadedUnA.updateClassification(catEco, topicStock, "Updated Memo A");
+                em.flush();
+                em.clear();
+
+                // then: User B should still be IT/AI
+                UserNewsletter loadedUnB = userNewsletterRepository.findById(unB.getId()).get();
+                assertThat(loadedUnB.getCategory().getName()).isEqualTo("IT");
+                assertThat(loadedUnB.getTopic().getName()).isEqualTo("AI");
+
+                // then: User A should be Economy/Stock
+                UserNewsletter reloadedUnA = userNewsletterRepository.findById(unA.getId()).get();
+                assertThat(reloadedUnA.getCategory().getName()).isEqualTo("Economy");
+                assertThat(reloadedUnA.getTopic().getName()).isEqualTo("Stock");
+
+                // then: Original Newsletter should still indicate IT/AI (if it has fields for
+                // it)
+                Newsletter loadedNewsletter = em.find(Newsletter.class, newsletter.getId());
+                assertThat(loadedNewsletter.getCategory()).isEqualTo("IT");
+                assertThat(loadedNewsletter.getTopic()).isEqualTo("AI");
+        }
+
+        @Test
+        @DisplayName("[Migration] Bulk update category/topic from Newsletter to UserNewsletter")
+        void testBulkMigrateCategoryAndTopic() {
+                // given
+                User user = User.builder().email("migrate@test.com").nickname("MigrateUser").build();
+                em.persist(user);
+
+                Category cat = Category.builder().name("Economy").build();
+                em.persist(cat);
+                Topic topic = Topic.builder().name("Stock").category(cat).build();
+                em.persist(topic);
+
+                // Newsletter has category/topic names
+                Newsletter newsletter = Newsletter.builder()
+                                .title("Old Newsletter")
+                                .contentUrl("http://old.com")
+                                .build();
+                newsletter.updateCategoryAndTopic("Economy", "Stock");
+                em.persist(newsletter);
+
+                // UserNewsletter has NULL category/topic
+                UserNewsletter un = UserNewsletter.create(user, newsletter, null, null, "Old Memo");
+                em.persist(un);
+
+                em.flush();
+                em.clear();
+
+                // when
+                userNewsletterRepository.bulkMigrateCategoryAndTopic();
+                em.flush();
+                em.clear();
+
+                // then
+                UserNewsletter migratedUn = userNewsletterRepository.findById(un.getId()).get();
+                assertThat(migratedUn.getCategory()).isNotNull();
+                assertThat(migratedUn.getCategory().getName()).isEqualTo("Economy");
+                assertThat(migratedUn.getTopic()).isNotNull();
+                assertThat(migratedUn.getTopic().getName()).isEqualTo("Stock");
+        }
+
+        @Test
+        @DisplayName("[Reports] 주간 리포트 쿼리 검증 (JOIN FETCH 확인)")
+        void findByUserIdAndCreatedAtBetween_Success() {
+                // given
+                User user = User.builder().email("report@test.com").nickname("리포트유저").build();
+                em.persist(user);
+
+                Category cat = Category.builder().name("Economy").build();
+                em.persist(cat);
+                Topic topic = Topic.builder().name("Stock").category(cat).build();
+                em.persist(topic);
+
+                Newsletter newsletter = Newsletter.builder().title("Report News").contentUrl("url").build();
+                em.persist(newsletter);
+
+                UserNewsletter un = UserNewsletter.create(user, newsletter, cat, topic, "메모");
+                em.persist(un);
+
+                em.flush();
+                em.clear();
+
+                // when
+                List<UserNewsletter> results = userNewsletterRepository.findByUserIdAndCreatedAtBetween(
+                                user.getId(),
+                                LocalDateTime.now().minusDays(1),
+                                LocalDateTime.now().plusDays(1));
+
+                // then
+                assertThat(results).hasSize(1);
+                assertThat(results.get(0).getTopic()).isNotNull();
+                assertThat(results.get(0).getTopic().getName()).isEqualTo("Stock");
         }
 }

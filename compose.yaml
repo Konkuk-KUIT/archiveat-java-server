@@ -1,14 +1,4 @@
 services:
-  postgres:
-    image: 'postgres:16'
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_USER: ${DB_USER}
-    ports:
-      - '5432:5432'
-    volumes:
-      - pgdata:/var/lib/postgresql/data
   redis:
     image: 'redis:7'
     ports:
@@ -19,12 +9,9 @@ services:
       - "8080:8080"
     environment:
       # 🔴 핵심: localhost를 postgres로 덮어쓰기
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 
       PYTHON_SERVER_URL: ${PYTHON_SERVER_URL}
       JWT_SECRET: ${JWT_SECRET}
-
-volumes:
-  pgdata:

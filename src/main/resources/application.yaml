@@ -3,7 +3,8 @@ spring:
     name: server
   forward-headers-strategy: framework
   datasource:
-    url: jdbc:postgresql://localhost:5432/${DB_NAME}
+    # url: jdbc:postgresql://localhost:5432/${DB_NAME}
+    url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -14,6 +15,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_batch_fetch_size: 100
   task:
     execution:
       pool:

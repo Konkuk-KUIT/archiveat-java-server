@@ -4,8 +4,12 @@ import com.archiveat.server.domain.newsletter.dto.response.SimpleViewNewsletterR
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
+import com.archiveat.server.domain.explore.entity.Category;
+import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.newsletter.dto.response.ViewNewsletterResponse;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import static org.mockito.Mockito.mock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,7 +53,7 @@ class NewsletterServiceTest {
         ReflectionTestUtils.setField(newsletter, "topic", "Topic");
         ReflectionTestUtils.setField(newsletter, "thumbnailUrl", "http://thumb.url");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, "Memo");
+        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
         ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
@@ -79,7 +83,7 @@ class NewsletterServiceTest {
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
         ReflectionTestUtils.setField(newsletter, "title", "Newsletter Title");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, "Memo");
+        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
         ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
@@ -98,5 +102,71 @@ class NewsletterServiceTest {
 
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("viewUserNewsletter should return personalized classification if available")
+    void viewUserNewsletter_ShouldReturnPersonalizedClassification() {
+        // given
+        Long userId = 1L;
+        Long userNewsletterId = 10L;
+
+        UserNewsletter userNewsletter = mock(UserNewsletter.class);
+        Newsletter newsletter = mock(Newsletter.class);
+        Category userCategory = mock(Category.class);
+        Topic userTopic = mock(Topic.class);
+
+        given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
+                .willReturn(Optional.of(userNewsletter));
+        given(userNewsletter.getNewsletter()).willReturn(newsletter);
+        given(userNewsletter.getId()).willReturn(userNewsletterId);
+        given(newsletter.getNewsletterSummary()).willReturn("[]");
+
+        // Original metadata - Not needed as we expect them to be ignored
+
+        // User personalized metadata
+        given(userNewsletter.getCategory()).willReturn(userCategory);
+        given(userNewsletter.getTopic()).willReturn(userTopic);
+        given(userCategory.getName()).willReturn("PersonalizedCategory");
+        given(userTopic.getName()).willReturn("PersonalizedTopic");
+
+        // when
+        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+
+        // then
+        assertThat(response.categoryName()).isEqualTo("PersonalizedCategory");
+        assertThat(response.topicName()).isEqualTo("PersonalizedTopic");
+    }
+
+    @Test
+    @DisplayName("viewUserNewsletter should fallback to original classification when user classification is missing")
+    void viewUserNewsletter_ShouldFallbackToOriginalClassification() {
+        // given
+        Long userId = 1L;
+        Long userNewsletterId = 11L;
+
+        UserNewsletter userNewsletter = mock(UserNewsletter.class);
+        Newsletter newsletter = mock(Newsletter.class);
+
+        given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
+                .willReturn(Optional.of(userNewsletter));
+        given(userNewsletter.getNewsletter()).willReturn(newsletter);
+        given(userNewsletter.getId()).willReturn(userNewsletterId);
+        given(newsletter.getNewsletterSummary()).willReturn("[]");
+
+        // User classification is null
+        given(userNewsletter.getCategory()).willReturn(null);
+        given(userNewsletter.getTopic()).willReturn(null);
+
+        // Original metadata
+        given(newsletter.getCategory()).willReturn("OriginalCategory");
+        given(newsletter.getTopic()).willReturn("OriginalTopic");
+
+        // when
+        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+
+        // then
+        assertThat(response.categoryName()).isEqualTo("OriginalCategory");
+        assertThat(response.topicName()).isEqualTo("OriginalTopic");
     }
 }

@@ -12,9 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.time.format.DateTimeFormatter;
 
 import static com.archiveat.server.global.common.constant.DateTimeConstant.APP_ZONE;
 
@@ -43,7 +45,13 @@ public class HomeService {
                         un.getNewsletter().getTitle(),
                         un.getNewsletter().getSmallCardSummary(),
                         un.getNewsletter().getMediumCardSummary(),
-                        un.getNewsletter().getThumbnailUrl()))
+                        un.getNewsletter().getThumbnailUrl(),
+                        un.getNewsletter().getDomain() != null ? un.getNewsletter().getDomain().getName() : null,
+                        un.getCreatedAt() != null
+                                ? un.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                        .withZoneSameInstant(APP_ZONE)
+                                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                : null))
                 .collect(Collectors.toList());
 
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
@@ -51,10 +59,14 @@ public class HomeService {
                 .stream()
                 .map(col -> {
                     // Todo: N+1 문제 최적화 필요
-                    // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 URL들을 수집합니다.
-                    List<String> thumbnailUrls = collectionNewsletterRepository.findAllByCollectionId(col.getId())
+                    // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 정보를 수집합니다.
+                    List<HomeResponse.ThumbnailInfo> thumbnails = collectionNewsletterRepository
+                            .findAllByCollectionId(col.getId())
                             .stream()
-                            .map(cn -> cn.getNewsletter().getThumbnailUrl())
+                            .map(cn -> new HomeResponse.ThumbnailInfo(
+                                    cn.getNewsletter().getThumbnailUrl(),
+                                    cn.getNewsletter().getDomain() != null ? cn.getNewsletter().getDomain().getName()
+                                            : null))
                             .limit(4)
                             .collect(Collectors.toList());
 
@@ -65,7 +77,7 @@ public class HomeService {
                             col.getTitle(),
                             col.getSmallCardSummary(),
                             col.getMediumCardSummary(),
-                            thumbnailUrls);
+                            thumbnails);
                 })
                 .collect(Collectors.toList());
 

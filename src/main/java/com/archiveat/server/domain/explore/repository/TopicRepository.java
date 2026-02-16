@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface TopicRepository extends JpaRepository<Topic, Long> {
     Optional<Topic> findByName(String name);
+
+    Optional<Topic> findByNameAndCategory_Name(String name, String categoryName);
 }
