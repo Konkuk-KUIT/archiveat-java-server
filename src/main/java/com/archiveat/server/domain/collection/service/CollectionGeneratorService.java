@@ -44,9 +44,9 @@ public class CollectionGeneratorService {
         log.info("Starting collection generation for time: {}", time);
 
         // 1. Determine Target DepthType
-        // 06:00 -> LIGHT (Short), Others -> DEEP (Long)
+        // 06:00, 22:00 -> LIGHT (Short), 12:00, 18:00 -> DEEP (Long)
         DepthType targetDepth;
-        if (time.getHour() == 6) {
+        if (time.getHour() == 6 || time.getHour() == 22) {
             targetDepth = DepthType.LIGHT;
         } else {
             targetDepth = DepthType.DEEP;

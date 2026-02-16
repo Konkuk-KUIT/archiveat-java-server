@@ -36,10 +36,12 @@ public class HomeControllerTest {
                 // given
                 HomeResponse.TabResponse tab = new HomeResponse.TabResponse("INSPIRATION", "영감수집", "잠깐의 틈을 채워줄 인사이트");
                 HomeResponse.ContentCardResponse card = new HomeResponse.ContentCardResponse(
-                                10L, "영감수집", "AI 요약", "테스트 뉴스레터", "소형 요약", "중형 요약", "thumb.jpg",
+                                10L, "영감수집", "AI 요약", "테스트 뉴스레터", "소형 요약", "중형 요약", "thumb.jpg", "YouTube",
                                 "2026-02-16T14:00:00+09:00");
                 HomeResponse.ContentCollectionCardResponse collection = new HomeResponse.ContentCollectionCardResponse(
-                                100L, "집중탐구", "컬렉션", "테스트 컬렉션", "소형 요약", "중형 요약", List.of("thumb1.jpg", "thumb2.jpg"));
+                                100L, "집중탐구", "컬렉션", "테스트 컬렉션", "소형 요약", "중형 요약",
+                                List.of(new HomeResponse.ThumbnailInfo("thumb1.jpg", "YouTube"),
+                                                new HomeResponse.ThumbnailInfo("thumb2.jpg", "Naver News")));
 
                 HomeResponse homeResponse = new HomeResponse(
                                 "좋은 아침이에요!",
@@ -64,8 +66,8 @@ public class HomeControllerTest {
                                 .andExpect(jsonPath("$.data.contentCards[0].userNewsletterId").value(10))
                                 // 컬렉션 카드 검증
                                 .andExpect(jsonPath("$.data.contentCollectionCards[0].title").value("테스트 컬렉션"))
-                                .andExpect(jsonPath("$.data.contentCollectionCards[0].thumbnailUrls").isArray())
-                                .andExpect(jsonPath("$.data.contentCollectionCards[0].thumbnailUrls[0]")
+                                .andExpect(jsonPath("$.data.contentCollectionCards[0].thumbnails").isArray())
+                                .andExpect(jsonPath("$.data.contentCollectionCards[0].thumbnails[0].thumbnailUrl")
                                                 .value("thumb1.jpg"));
         }
 }
