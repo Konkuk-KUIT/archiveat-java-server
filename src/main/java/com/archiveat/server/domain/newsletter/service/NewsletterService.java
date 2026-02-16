@@ -114,12 +114,15 @@ public class NewsletterService {
         String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
                 : newsletter.getTopic();
 
+        String domainName = newsletter.getDomain() != null ? newsletter.getDomain().getName() : null;
+
         return new ViewNewsletterResponse(
                 userNewsletter.getId(),
                 categoryName,
                 topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
+                domainName,
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
@@ -178,12 +181,15 @@ public class NewsletterService {
         String topicName = userNewsletter.getTopic() != null ? userNewsletter.getTopic().getName()
                 : newsletter.getTopic();
 
+        String domainName = newsletter.getDomain() != null ? newsletter.getDomain().getName() : null;
+
         return new SimpleViewNewsletterResponse(
                 userNewsletter.getId(),
                 categoryName,
                 topicName,
                 newsletter.getTitle(),
                 newsletter.getThumbnailUrl(),
+                domainName,
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),

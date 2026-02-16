@@ -31,6 +31,7 @@ public record HomeResponse(
                         String smallCardSummary,
                         String mediumCardSummary,
                         String thumbnailUrl,
+                        String domainName,
                         String createdAt) {
         }
 
@@ -44,6 +45,14 @@ public record HomeResponse(
                         String title,
                         String smallCardSummary,
                         String mediumCardSummary,
-                        List<String> thumbnailUrls) {
+                        List<ThumbnailInfo> thumbnails) {
+        }
+
+        /**
+         * 썸네일 정보와 도메인 이름을 함께 담는 DTO입니다.
+         */
+        public record ThumbnailInfo(
+                        String thumbnailUrl,
+                        String domainName) {
         }
 }

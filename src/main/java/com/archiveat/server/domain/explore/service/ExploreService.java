@@ -97,6 +97,9 @@ public class ExploreService {
                                                 un.getId(),
                                                 un.getNewsletter().getTitle(),
                                                 un.getNewsletter().getThumbnailUrl(),
+                                                un.getNewsletter().getDomain() != null
+                                                                ? un.getNewsletter().getDomain().getName()
+                                                                : null,
                                                 un.isRead(),
                                                 un.getCreatedAt().atZone(ZoneId.of("UTC"))
                                                                 .withZoneSameInstant(APP_ZONE)

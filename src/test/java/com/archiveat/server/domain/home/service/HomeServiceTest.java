@@ -5,6 +5,7 @@ import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
 import com.archiveat.server.domain.collection.repository.CollectionNewsletterRepository;
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
+import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
@@ -29,11 +30,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class HomeServiceTest {
 
-    @Mock private UserNewsletterRepository userNewsletterRepository;
-    @Mock private CollectionRepository collectionRepository;
-    @Mock private CollectionNewsletterRepository collectionNewsletterRepository;
+    @Mock
+    private UserNewsletterRepository userNewsletterRepository;
+    @Mock
+    private CollectionRepository collectionRepository;
+    @Mock
+    private CollectionNewsletterRepository collectionNewsletterRepository;
 
-    @InjectMocks private HomeService homeService;
+    @InjectMocks
+    private HomeService homeService;
 
     @Test
     @DisplayName("[Home] 메인 데이터 조회 테스트")
@@ -50,6 +55,9 @@ public class HomeServiceTest {
             when(n.getThumbnailUrl()).thenReturn("http://example.com/" + i + ".jpg");
             when(n.getSmallCardSummary()).thenReturn("Small summary " + i);
             when(n.getMediumCardSummary()).thenReturn("Medium summary " + i);
+            Domain mockDomain = mock(Domain.class);
+            when(mockDomain.getName()).thenReturn("YouTube");
+            when(n.getDomain()).thenReturn(mockDomain);
             mockNewsletters.add(n);
         }
 
@@ -100,11 +108,12 @@ public class HomeServiceTest {
 
             // 컬렉션 카드 검증
             softly.assertThat(response.contentCollectionCards()).hasSize(1);
-            softly.assertThat(response.contentCollectionCards().getFirst().thumbnailUrls()).hasSize(4);
+            softly.assertThat(response.contentCollectionCards().getFirst().thumbnails()).hasSize(4);
             softly.assertThat(response.contentCollectionCards().getFirst().cardType()).isEqualTo("컬렉션");
 
-            // 썸네일 URL 검증
-            softly.assertThat(response.contentCollectionCards().getFirst().thumbnailUrls())
+            // 썸네일 정보 검증
+            softly.assertThat(response.contentCollectionCards().getFirst().thumbnails())
+                    .extracting(HomeResponse.ThumbnailInfo::thumbnailUrl)
                     .contains("http://example.com/10.jpg");
         });
     }
