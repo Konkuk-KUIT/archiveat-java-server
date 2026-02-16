@@ -35,8 +35,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.global.common.constant.DateTimeConstant;
 
 import java.net.URI;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -120,6 +123,11 @@ public class NewsletterService {
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
+                userNewsletter.getCreatedAt() != null
+                        ? userNewsletter.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                .withZoneSameInstant(DateTimeConstant.APP_ZONE)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        : null,
                 summaryBlocks);
     }
 
@@ -179,6 +187,11 @@ public class NewsletterService {
                 label,
                 userNewsletter.getMemo(),
                 newsletter.getContentUrl(),
+                userNewsletter.getCreatedAt() != null
+                        ? userNewsletter.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                .withZoneSameInstant(DateTimeConstant.APP_ZONE)
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        : null,
                 summaryBlocks);
     }
 

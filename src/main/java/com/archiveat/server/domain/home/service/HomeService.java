@@ -12,9 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.time.format.DateTimeFormatter;
 
 import static com.archiveat.server.global.common.constant.DateTimeConstant.APP_ZONE;
 
@@ -43,7 +45,12 @@ public class HomeService {
                         un.getNewsletter().getTitle(),
                         un.getNewsletter().getSmallCardSummary(),
                         un.getNewsletter().getMediumCardSummary(),
-                        un.getNewsletter().getThumbnailUrl()))
+                        un.getNewsletter().getThumbnailUrl(),
+                        un.getCreatedAt() != null
+                                ? un.getCreatedAt().atZone(ZoneId.of("UTC"))
+                                        .withZoneSameInstant(APP_ZONE)
+                                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                : null))
                 .collect(Collectors.toList());
 
         List<HomeResponse.ContentCollectionCardResponse> contentCollectionCards = collectionRepository
