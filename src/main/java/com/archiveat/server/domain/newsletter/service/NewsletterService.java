@@ -27,6 +27,8 @@ import com.archiveat.server.global.exception.CustomException;
 import com.archiveat.server.global.lock.DistributedLockService;
 import com.archiveat.server.global.security.TokenHashUtil;
 import com.archiveat.server.global.util.DomainClassifier;
+import com.archiveat.server.global.util.UrlNormalizer;
+import com.archiveat.server.global.util.UrlRedirectResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
@@ -71,6 +73,7 @@ public class NewsletterService {
     private final DistributedLockService distributedLockService;
     private final TokenHashUtil tokenHashUtil;
     private final CacheManager cacheManager;
+    private final UrlRedirectResolver urlRedirectResolver;
 
     private final TransactionTemplate transactionTemplate;
 
@@ -204,61 +207,73 @@ public class NewsletterService {
     /**
      * Newsletter 생성 엔드포인트
      */
-    @Transactional
     public GenerateNewsletterResponse generateNewsletter(Long userId, String contentUrl, String memo) {
-        // [Concurrency Fix] 별도 트랜잭션으로 처리하여 Main TX 롤백 방지
-        String domainName = normalizeDomainName(extractDomainName(contentUrl));
-        Domain domain = newsletterSynchronizer.getOrCreateDomain(domainName);
+        String firstNormalized = UrlNormalizer.normalize(contentUrl);
+        String resolvedUrl = urlRedirectResolver.resolveIfShortUrl(firstNormalized);
+        String normalizedUrl = UrlNormalizer.normalize(resolvedUrl);
+        log.info("Normalized URL: {}", normalizedUrl);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        GenerateNewsletterResponse response = transactionTemplate.execute(status -> {
+            String domainName = normalizeDomainName(extractDomainName(normalizedUrl));
+            Domain domain = newsletterSynchronizer.getOrCreateDomain(domainName);
 
-        // [Concurrency Fix] 별도 트랜잭션으로 처리
-        Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, contentUrl);
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)) {
-            throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
-        }
+            // [Concurrency Fix] 별도 트랜잭션으로 처리
+            Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, normalizedUrl);
 
-        Category category = null;
-        Topic topic = null;
 
-        if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
-            category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
-            topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
-        }
-
-        UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, category, topic, memo);
-
-        // 이미 분석 완료된(DONE) 뉴스레터라면 바로 라벨 계산
-        if (newsletter.getLlmStatus() == LlmStatus.DONE) {
-            DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
-            // 단건 조회용 메서드 사용
-            PerspectiveType perspectiveType = calculatePerspectiveTypeSingle(userId, newsletter.getCategory());
-
-            userNewsletter.updateLabelComponents(perspectiveType, depthType);
-            try {
-                userNewsletterRepository.save(userNewsletter);
-            } catch (DataIntegrityViolationException e) {
+            if (userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)) {
                 throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
             }
-            log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}", newsletter.getId(),
-                    userId);
-        } else {
-            // PENDING 상태라면 저장 후 이벤트 발행
-            try {
-                userNewsletterRepository.save(userNewsletter);
-            } catch (DataIntegrityViolationException e) {
-                throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
-            }
-            Long newsletterId = newsletter.getId();
-            applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, contentUrl));
-            log.info("Newsletter event published: newsletterId={}", newsletterId);
-        }
+            
+            Category category = null;
+            Topic topic = null;
 
-        return new GenerateNewsletterResponse(
-                userNewsletter.getId(),
-                newsletter.getLlmStatus().name());
+            if (newsletter.getCategory() != null && newsletter.getTopic() != null) {
+                category = categoryRepository.findByName(newsletter.getCategory()).orElse(null);
+                topic = topicRepository.findByName(newsletter.getTopic()).orElse(null);
+            }
+
+            UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, category, topic, memo);
+          
+
+            // 이미 분석 완료된(DONE) 뉴스레터라면 바로 라벨 계산
+            if (newsletter.getLlmStatus() == LlmStatus.DONE) {
+                DepthType depthType = calculateDepthType(newsletter.getConsumptionTimeMin());
+                // 단건 조회용 메서드 사용
+                PerspectiveType perspectiveType = calculatePerspectiveTypeSingle(userId, newsletter.getCategory());
+
+                userNewsletter.updateLabelComponents(perspectiveType, depthType);
+                try {
+                    userNewsletterRepository.save(userNewsletter);
+                } catch (DataIntegrityViolationException e) {
+                    throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+                }
+                log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}", newsletter.getId(),
+                        userId);
+            } else {
+                // PENDING 상태라면 저장 후 이벤트 발행
+                try {
+                    userNewsletterRepository.save(userNewsletter);
+                } catch (DataIntegrityViolationException e) {
+                    throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
+                }
+                Long newsletterId = newsletter.getId();
+                applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, normalizedUrl));
+                log.info("Newsletter event published: newsletterId={}", newsletterId);
+            }
+
+            return new GenerateNewsletterResponse(
+                    userNewsletter.getId(),
+                    newsletter.getLlmStatus().name());
+        });
+
+        if (response == null) {
+            throw new CustomException(ErrorCode.INTERNAL_ERROR);
+        }
+        return response;
     }
 
     /**
