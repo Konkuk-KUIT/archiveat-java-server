@@ -36,16 +36,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // 4. Spring Security가 인식할 수 있는 인증 객체를 생성합니다.
                 // 현재는 권한 정보가 없으므로 빈 리스트를 전달합니다.
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId,
+                        null, Collections.emptyList());
 
                 // 5. 서버 내부의 보안 저장소(SecurityContext)에 이 유저가 인증되었음을 기록합니다.
                 // 이후 컨트롤러에서 이 정보를 꺼내 쓸 수 있게 됩니다.
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
             } catch (Exception e) {
-                // 토큰이 만료되었거나 변조된 경우 context에 인증 정보를 등록하지 않습니다.
-                // 이 경우 이후 SecurityConfig 설정에 따라 접근이 거부됩니다.
+                // 토큰이 만료되었거나 변조된 경우 SecurityContext를 비워서
+                // 이후 .authenticated() 규칙에서 JwtAuthenticationEntryPoint가 401을 반환하게 합니다.
+                SecurityContextHolder.clearContext();
             }
         }
 
