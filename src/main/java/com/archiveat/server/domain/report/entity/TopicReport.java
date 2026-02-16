@@ -23,4 +23,11 @@ public class TopicReport {
     private Topic topic;
 
     private BigDecimal consumeBalance;
+
+    @Builder
+    public TopicReport(Report report, Topic topic, BigDecimal consumeBalance) {
+        this.report = report;
+        this.topic = topic;
+        this.consumeBalance = consumeBalance;
+    }
 }
