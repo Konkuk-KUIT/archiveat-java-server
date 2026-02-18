@@ -80,6 +80,7 @@ public class CollectionService {
                                         UserNewsletter userNewsletter = userNewsletterMap.get(newsletter.getId());
 
                                         return new NewsletterDto(
+                                                        userNewsletter != null ? userNewsletter.getId() : null,
                                                         newsletter.getId(),
                                                         newsletter.getDomain().getName(),
                                                         newsletter.getTitle(),
