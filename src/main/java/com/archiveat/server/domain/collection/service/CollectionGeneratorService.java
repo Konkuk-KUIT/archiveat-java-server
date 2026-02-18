@@ -39,6 +39,7 @@ public class CollectionGeneratorService {
     private final TopicRepository topicRepository;
     private final UserTopicRepository userTopicRepository;
     private final TransactionTemplate transactionTemplate;
+    private final com.archiveat.server.global.client.PythonClientService pythonClientService;
 
     public void generateCollectionsForTime(LocalTime time) {
         log.info("Starting collection generation for time: {}", time);
@@ -167,7 +168,54 @@ public class CollectionGeneratorService {
 
         collection.getCollectionNewsletters().addAll(collectionNewsletters);
         collectionRepository.save(collection);
+
+        // 9. Generate AI Summary (Async)
+        // [수정] Python 서버에 요약 요청
+        generateCollectionSummary(collection, collectionNewsletters);
+
         log.info("Generated collection {} for user {}", collection.getId(), user.getId());
+    }
+
+    private void generateCollectionSummary(Collection collection, List<CollectionNewsletter> collectionNewsletters) {
+        try {
+            // 뉴스레터 제목 + (요약 내용이 있다면) 요약 내용 조합
+            List<String> newsletterSummaries = collectionNewsletters.stream()
+                    .map(cn -> {
+                        String title = cn.getNewsletter().getTitle();
+                        // UserNewsletter를 조회해서 요약 내용을 가져와야 하지만, 현재 구조상 Newsletter 엔티티만 접근 가능
+                        // Newsletter 엔티티에 저장된 요약이 없으므로 제목만 일단 보냄 (추후 개선 필요)
+                        // 또는 UserNewsletter를 통해 이미 조회된 selectedCluster를 활용
+                        return title;
+                    })
+                    .collect(Collectors.toList());
+
+            // selectedCluster를 인자로 받아서 처리하도록 리팩토링 필요하지만, 일단 title 리스트만 보냄
+            // Python 서버 프롬프트가 제목만으로도 어느정도 작문 가능
+
+            pythonClientService.requestCollectionSummary(newsletterSummaries)
+                    .thenAccept(response -> {
+                        if (response.getAnalysis() != null) {
+                            transactionTemplate.execute(status -> {
+                                Collection managed = collectionRepository.findById(collection.getId())
+                                        .orElse(null);
+                                if (managed != null) {
+                                    managed.updateSummaries(
+                                            response.getAnalysis().getSmallCardSummary(),
+                                            response.getAnalysis().getMediumCardSummary());
+                                }
+                                return null;
+                            });
+                            log.info("Updated summaries for collection {}", collection.getId());
+                        }
+                    })
+                    .exceptionally(ex -> {
+                        log.error("Failed to generate summary for collection {}", collection.getId(), ex);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            log.error("Error initiating summary generation for collection {}", collection.getId(), e);
+        }
     }
 
     private PerspectiveType calculatePerspectiveType(Long userId, String topicName) {

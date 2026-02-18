@@ -44,21 +44,23 @@ class ReportServiceTest {
 
                 // [Insight] 생성자 대신 정의된 @Builder를 사용하여 가독성 확보
                 UserNewsletter un1 = UserNewsletter.builder()
-                        .depthType(DepthType.LIGHT)
-                        .perspectiveType(PerspectiveType.NOW)
-                        .lastViewedAt(LocalDateTime.now())
-                        .build();
+                                .depthType(DepthType.LIGHT)
+                                .perspectiveType(PerspectiveType.NOW)
+                                .lastViewedAt(LocalDateTime.now())
+                                .build();
 
                 UserNewsletter un2 = UserNewsletter.builder()
-                        .depthType(DepthType.DEEP)
-                        .perspectiveType(PerspectiveType.FUTURE)
-                        .lastViewedAt(LocalDateTime.now())
-                        .build();
+                                .depthType(DepthType.DEEP)
+                                .perspectiveType(PerspectiveType.FUTURE)
+                                .lastViewedAt(LocalDateTime.now())
+                                .build();
 
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
-                        .thenReturn(List.of(un1));
+                                .thenReturn(List.of(un1));
+                // Balance calculation now uses read newsletters, so un1 (Light) must be in this
+                // list to pass assertThat(lightCount).isEqualTo(1)
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(un2));
+                                .thenReturn(List.of(un1, un2));
 
                 // when
                 WeeklyReportResponse response = reportService.getWeeklyReport(userId);
@@ -66,7 +68,7 @@ class ReportServiceTest {
                 // then
                 assertThat(response).isNotNull();
                 assertThat(response.totalSavedCount()).isEqualTo(1);
-                assertThat(response.totalReadCount()).isEqualTo(1);
+                assertThat(response.totalReadCount()).isEqualTo(2);
                 assertThat(response.lightCount()).isEqualTo(1); // un1 기준
                 assertThat(response.nowCount()).isEqualTo(1);
         }
@@ -78,25 +80,25 @@ class ReportServiceTest {
                 Long userId = 1L;
 
                 Newsletter newsletter = Newsletter.builder()
-                        .title("Test Title")
-                        .contentUrl("http://test.com")
-                        .build();
+                                .title("Test Title")
+                                .contentUrl("http://test.com")
+                                .build();
 
                 // [Reason] Newsletter 빌더에 없는 필드(id, category)만 리플렉션 사용
                 ReflectionTestUtils.setField(newsletter, "id", 100L);
                 ReflectionTestUtils.setField(newsletter, "category", "IT/Science");
 
                 UserNewsletter un = UserNewsletter.builder()
-                        .newsletter(newsletter)
-                        .lastViewedAt(LocalDateTime.now())
-                        .build();
+                                .newsletter(newsletter)
+                                .lastViewedAt(LocalDateTime.now())
+                                .build();
 
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
-                        .thenReturn(Collections.emptyList());
+                                .thenReturn(Collections.emptyList());
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(Collections.emptyList());
+                                .thenReturn(Collections.emptyList());
                 when(userNewsletterRepository.findByUserIdAndIsReadTrueOrderByLastViewedAtDesc(userId))
-                        .thenReturn(List.of(un));
+                                .thenReturn(List.of(un));
 
                 // when
                 ConsumptionResponse response = reportService.getConsumption(userId);
@@ -118,19 +120,19 @@ class ReportServiceTest {
                 ReflectionTestUtils.setField(topic, "id", topicId); // ID는 수동 주입
 
                 UserNewsletter savedUn = UserNewsletter.builder()
-                        .topic(topic)
-                        .lastViewedAt(LocalDateTime.now())
-                        .build();
+                                .topic(topic)
+                                .lastViewedAt(LocalDateTime.now())
+                                .build();
 
                 UserNewsletter readUn = UserNewsletter.builder()
-                        .topic(topic)
-                        .lastViewedAt(LocalDateTime.now())
-                        .build();
+                                .topic(topic)
+                                .lastViewedAt(LocalDateTime.now())
+                                .build();
 
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
-                        .thenReturn(List.of(savedUn, savedUn)); // 2개 저장
+                                .thenReturn(List.of(savedUn, savedUn)); // 2개 저장
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(readUn)); // 1개 읽음
+                                .thenReturn(List.of(readUn)); // 1개 읽음
 
                 // when
                 var response = reportService.getGapAnalysis(userId);
@@ -153,7 +155,7 @@ class ReportServiceTest {
                 UserNewsletter deep = UserNewsletter.builder().depthType(DepthType.DEEP).build();
 
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(light, light, deep));
+                                .thenReturn(List.of(light, light, deep));
 
                 // when
                 var response = reportService.getBalance(userId);
@@ -169,9 +171,9 @@ class ReportServiceTest {
         void getWeeklyReport_Empty() {
                 // given
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(any(), any(), any()))
-                        .thenReturn(Collections.emptyList());
+                                .thenReturn(Collections.emptyList());
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(any(), any(), any()))
-                        .thenReturn(Collections.emptyList());
+                                .thenReturn(Collections.emptyList());
 
                 // when
                 WeeklyReportResponse response = reportService.getWeeklyReport(1L);
