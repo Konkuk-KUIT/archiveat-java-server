@@ -1,15 +1,15 @@
 package com.archiveat.server.domain.newsletter.service;
 
+import com.archiveat.server.domain.explore.entity.Category;
+import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.domain.newsletter.dto.response.SimpleViewNewsletterResponse;
+import com.archiveat.server.domain.newsletter.dto.response.ViewNewsletterResponse;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
-import com.archiveat.server.domain.explore.entity.Category;
-import com.archiveat.server.domain.explore.entity.Topic;
-import com.archiveat.server.domain.newsletter.dto.response.ViewNewsletterResponse;
 import com.archiveat.server.global.common.constant.DepthType;
+import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.constant.PerspectiveType;
-import static org.mockito.Mockito.mock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,10 +20,10 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,27 +43,34 @@ class NewsletterServiceTest {
     void simpleViewUserNewsletter_ReturnsFirstSummaryBlock() throws Exception {
         // given
         Long userId = 1L;
-        Long userNewsletterId = 1L;
+        Long userNewsletterId = 100L;
         String summaryJson = "[{\"title\":\"Summary 1\",\"content\":\"Content 1\"}, {\"title\":\"Summary 2\",\"content\":\"Content 2\"}]";
 
-        Newsletter newsletter = new Newsletter(null, "http://example.com");
+        // 1. Newsletter 빌더를 통한 실제 객체 생성
+        Newsletter newsletter = Newsletter.builder()
+                .id(1L)
+                .title("Newsletter Title")
+                .contentUrl("http://example.com")
+                .llmStatus(LlmStatus.DONE)
+                .build();
+        // 빌더에 없는 필드는 Reflection으로 주입하여 NPE 방지 및 데이터 설정
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
-        ReflectionTestUtils.setField(newsletter, "title", "Newsletter Title");
-        ReflectionTestUtils.setField(newsletter, "category", "Category");
-        ReflectionTestUtils.setField(newsletter, "topic", "Topic");
         ReflectionTestUtils.setField(newsletter, "thumbnailUrl", "http://thumb.url");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
+        // 2. UserNewsletter 빌더를 통한 실제 객체 생성
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .memo("Memo")
+                .depthType(DepthType.DEEP)
+                .perspectiveType(PerspectiveType.NOW)
+                .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
-        ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
         // when
-        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId,
-                true);
+        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId, true);
 
         // then
         assertThat(response.newsletterSimpleSummary()).hasSize(1);
@@ -76,29 +83,27 @@ class NewsletterServiceTest {
     void simpleViewUserNewsletter_ReturnsEmptyList_WhenSummaryIsEmpty() throws Exception {
         // given
         Long userId = 1L;
-        Long userNewsletterId = 1L;
-        String summaryJson = "[]";
+        Long userNewsletterId = 100L;
 
-        Newsletter newsletter = new Newsletter(null, "http://example.com");
-        ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
-        ReflectionTestUtils.setField(newsletter, "title", "Newsletter Title");
+        Newsletter newsletter = Newsletter.builder()
+                .id(1L)
+                .title("Newsletter Title")
+                .contentUrl("http://example.com")
+                .build();
+        ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, "Memo");
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .depthType(DepthType.DEEP)
+                .perspectiveType(PerspectiveType.NOW)
+                .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "depthType", DepthType.DEEP);
-        ReflectionTestUtils.setField(userNewsletter, "perspectiveType", PerspectiveType.NOW);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // Real ObjectMapper to test actual parsing logic
-        // ObjectMapper is not used when summary is "[]" because of the check in
-        // parseNewsletterSummary
-        // so we don't need to stub it here
-
         // when
-        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId,
-                true);
+        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId, true);
 
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
@@ -111,24 +116,27 @@ class NewsletterServiceTest {
         Long userId = 1L;
         Long userNewsletterId = 10L;
 
-        UserNewsletter userNewsletter = mock(UserNewsletter.class);
-        Newsletter newsletter = mock(Newsletter.class);
-        Category userCategory = mock(Category.class);
-        Topic userTopic = mock(Topic.class);
+        // 실제 Category와 Topic 객체 생성
+        Category userCategory = Category.builder().id(1L).name("PersonalizedCategory").build();
+        Topic userTopic = Topic.builder().id(10L).name("PersonalizedTopic").build();
+
+        Newsletter newsletter = Newsletter.builder()
+                .id(1L)
+                .contentUrl("http://url")
+                .build();
+        ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
+
+        // 유저가 개인화한 정보를 담은 UserNewsletter 객체 생성
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .category(userCategory)
+                .topic(userTopic)
+                .build();
+        ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now()); // NPE 방어
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
-        given(userNewsletter.getNewsletter()).willReturn(newsletter);
-        given(userNewsletter.getId()).willReturn(userNewsletterId);
-        given(newsletter.getNewsletterSummary()).willReturn("[]");
-
-        // Original metadata - Not needed as we expect them to be ignored
-
-        // User personalized metadata
-        given(userNewsletter.getCategory()).willReturn(userCategory);
-        given(userNewsletter.getTopic()).willReturn(userTopic);
-        given(userCategory.getName()).willReturn("PersonalizedCategory");
-        given(userTopic.getName()).willReturn("PersonalizedTopic");
 
         // when
         ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
@@ -145,22 +153,26 @@ class NewsletterServiceTest {
         Long userId = 1L;
         Long userNewsletterId = 11L;
 
-        UserNewsletter userNewsletter = mock(UserNewsletter.class);
-        Newsletter newsletter = mock(Newsletter.class);
+        Newsletter newsletter = Newsletter.builder()
+                .id(1L)
+                .contentUrl("http://url")
+                .build();
+        // Newsletter 엔티티가 가진 원본 메타데이터 (빌더에 없으므로 Reflection 사용)
+        ReflectionTestUtils.setField(newsletter, "category", "OriginalCategory");
+        ReflectionTestUtils.setField(newsletter, "topic", "OriginalTopic");
+        ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
+
+        // 카테고리와 토픽이 null인 상태 (폴백 상황 시뮬레이션)
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .category(null)
+                .topic(null)
+                .build();
+        ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
-        given(userNewsletter.getNewsletter()).willReturn(newsletter);
-        given(userNewsletter.getId()).willReturn(userNewsletterId);
-        given(newsletter.getNewsletterSummary()).willReturn("[]");
-
-        // User classification is null
-        given(userNewsletter.getCategory()).willReturn(null);
-        given(userNewsletter.getTopic()).willReturn(null);
-
-        // Original metadata
-        given(newsletter.getCategory()).willReturn("OriginalCategory");
-        given(newsletter.getTopic()).willReturn("OriginalTopic");
 
         // when
         ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
