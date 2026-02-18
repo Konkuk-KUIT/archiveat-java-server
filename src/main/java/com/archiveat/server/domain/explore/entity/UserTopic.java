@@ -4,6 +4,7 @@ import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.constant.PerspectiveType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -33,6 +34,14 @@ public class UserTopic {
      * @param perspectiveType NOW(선택됨) 또는 FUTURE(선택되지 않음)
      */
     public UserTopic(User user, Topic topic, PerspectiveType perspectiveType) {
+        this.user = user;
+        this.topic = topic;
+        this.perspectiveType = perspectiveType;
+    }
+
+    @Builder
+    public UserTopic(Long id, User user, Topic topic, PerspectiveType perspectiveType) {
+        this.id = id;
         this.user = user;
         this.topic = topic;
         this.perspectiveType = perspectiveType;
