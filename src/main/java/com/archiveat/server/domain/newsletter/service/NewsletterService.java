@@ -458,12 +458,8 @@ public class NewsletterService {
             return "YouTube";
         if (host.contains("news.naver.com"))
             return "Naver News";
-        if (host.contains("brunch.co.kr"))
-            return "Brunch";
-        if (host.contains("naver.com"))
-            return "Naver";
         if (host.contains("tistory.com"))
-            return "tistory";
+            return "Tistory";
         return host;
     }
 
