@@ -134,6 +134,7 @@ public class NewsletterService {
                                 .withZoneSameInstant(DateTimeConstant.APP_ZONE)
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                         : null,
+                userNewsletter.isRead(),
                 summaryBlocks);
     }
 
@@ -201,6 +202,7 @@ public class NewsletterService {
                                 .withZoneSameInstant(DateTimeConstant.APP_ZONE)
                                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                         : null,
+                userNewsletter.isRead(),
                 summaryBlocks);
     }
 
@@ -223,11 +225,10 @@ public class NewsletterService {
             // [Concurrency Fix] 별도 트랜잭션으로 처리
             Newsletter newsletter = newsletterSynchronizer.getOrCreatePendingNewsletter(domain, normalizedUrl);
 
-
             if (userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)) {
                 throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
             }
-            
+
             Category category = null;
             Topic topic = null;
 
@@ -237,7 +238,6 @@ public class NewsletterService {
             }
 
             UserNewsletter userNewsletter = UserNewsletter.create(user, newsletter, category, topic, memo);
-          
 
             // 이미 분석 완료된(DONE) 뉴스레터라면 바로 라벨 계산
             if (newsletter.getLlmStatus() == LlmStatus.DONE) {
@@ -251,7 +251,8 @@ public class NewsletterService {
                 } catch (DataIntegrityViolationException e) {
                     throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
                 }
-                log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}", newsletter.getId(),
+                log.info("Newsletter {} is already DONE. Calculated labels synchronously for user {}",
+                        newsletter.getId(),
                         userId);
             } else {
                 // PENDING 상태라면 저장 후 이벤트 발행
@@ -261,7 +262,8 @@ public class NewsletterService {
                     throw new CustomException(ErrorCode.NEWSLETTER_ALREADY_EXISTS);
                 }
                 Long newsletterId = newsletter.getId();
-                applicationEventPublisher.publishEvent(new NewsletterProcessRequestedEvent(newsletterId, normalizedUrl));
+                applicationEventPublisher
+                        .publishEvent(new NewsletterProcessRequestedEvent(newsletterId, normalizedUrl));
                 log.info("Newsletter event published: newsletterId={}", newsletterId);
             }
 
@@ -433,6 +435,7 @@ public class NewsletterService {
         UserNewsletter userNewsletter = userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
         userNewsletter.updateIsRead();
+        userNewsletterRepository.save(userNewsletter);
     }
 
     // --- Helper Methods ---

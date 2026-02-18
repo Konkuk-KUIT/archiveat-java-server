@@ -5,7 +5,6 @@ import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.report.dto.response.ConsumptionResponse;
 import com.archiveat.server.domain.report.dto.response.WeeklyReportResponse;
-import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.explore.entity.Topic;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.PerspectiveType;
@@ -18,9 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,34 +43,34 @@ class ReportServiceTest {
                 UserNewsletter un1 = UserNewsletter.builder()
                         .depthType(DepthType.LIGHT)
                         .perspectiveType(PerspectiveType.NOW)
-                        .isRead(true) // [추가] 읽음 상태 명시
+                        .isRead(true) // 읽음 처리
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
                 UserNewsletter un2 = UserNewsletter.builder()
                         .depthType(DepthType.DEEP)
                         .perspectiveType(PerspectiveType.FUTURE)
-                        .isRead(true) // [추가] 읽음 상태 명시
+                        .isRead(true) // 읽음 처리
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
-                // 1. 저장된 뉴스레터 목록 (un1)
+                // 1. 저장된 뉴스레터 (un1만 이번 주 저장되었다고 가정)
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
                         .thenReturn(List.of(un1));
 
-                // 2. 읽은 뉴스레터 목록 (분석의 기준이 되므로 un1과 un2를 모두 포함시키거나, 검증하려는 un1을 넣어야 함)
+                // 2. 이번 주 읽은 뉴스레터 (un1, un2 모두 포함하여 통계 수치 확보)
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(un1, un2)); // [수정] un1을 추가하여 lightCount가 1이 되도록 함
+                        .thenReturn(List.of(un1, un2));
 
                 // when
                 WeeklyReportResponse response = reportService.getWeeklyReport(userId);
 
                 // then
                 assertThat(response).isNotNull();
-                assertThat(response.totalSavedCount()).isEqualTo(1); // un1만 저장됨
-                assertThat(response.totalReadCount()).isEqualTo(2);  // un1, un2 읽음
-                assertThat(response.lightCount()).isEqualTo(1);     // un1이 LIGHT이므로 1
-                assertThat(response.nowCount()).isEqualTo(1);      // un1이 NOW이므로 1
+                assertThat(response.totalSavedCount()).isEqualTo(1); // un1
+                assertThat(response.totalReadCount()).isEqualTo(2);  // un1, un2
+                assertThat(response.lightCount()).isEqualTo(1);     // un1(LIGHT)
+                assertThat(response.nowCount()).isEqualTo(1);       // un1(NOW)
         }
 
         @Test
@@ -85,13 +83,12 @@ class ReportServiceTest {
                         .title("Test Title")
                         .contentUrl("http://test.com")
                         .build();
-
-                // [Reason] Newsletter 빌더에 없는 필드(id, category)만 리플렉션 사용
                 ReflectionTestUtils.setField(newsletter, "id", 100L);
                 ReflectionTestUtils.setField(newsletter, "category", "IT/Science");
 
                 UserNewsletter un = UserNewsletter.builder()
                         .newsletter(newsletter)
+                        .isRead(true)
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
@@ -119,15 +116,15 @@ class ReportServiceTest {
                 Long topicId = 10L;
 
                 Topic topic = Topic.builder().name("Economy").build();
-                ReflectionTestUtils.setField(topic, "id", topicId); // ID는 수동 주입
+                ReflectionTestUtils.setField(topic, "id", topicId);
 
                 UserNewsletter savedUn = UserNewsletter.builder()
                         .topic(topic)
-                        .lastViewedAt(LocalDateTime.now())
                         .build();
 
                 UserNewsletter readUn = UserNewsletter.builder()
                         .topic(topic)
+                        .isRead(true)
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
@@ -152,12 +149,11 @@ class ReportServiceTest {
                 // given
                 Long userId = 1L;
 
-                // Light 2개, Deep 1개 생성 (Light 선호 패턴)
-                UserNewsletter light = UserNewsletter.builder().depthType(DepthType.LIGHT).build();
-                UserNewsletter deep = UserNewsletter.builder().depthType(DepthType.DEEP).build();
+                UserNewsletter light = UserNewsletter.builder().depthType(DepthType.LIGHT).isRead(true).build();
+                UserNewsletter deep = UserNewsletter.builder().depthType(DepthType.DEEP).isRead(true).build();
 
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(light, light, deep));
+                        .thenReturn(List.of(light, light, deep)); // 2:1 비율
 
                 // when
                 var response = reportService.getBalance(userId);

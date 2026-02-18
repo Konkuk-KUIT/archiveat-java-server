@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class NewsletterServiceTest {
@@ -46,18 +47,15 @@ class NewsletterServiceTest {
         Long userNewsletterId = 100L;
         String summaryJson = "[{\"title\":\"Summary 1\",\"content\":\"Content 1\"}, {\"title\":\"Summary 2\",\"content\":\"Content 2\"}]";
 
-        // 1. Newsletter 빌더를 통한 실제 객체 생성
         Newsletter newsletter = Newsletter.builder()
                 .title("Newsletter Title")
                 .contentUrl("http://example.com")
                 .llmStatus(LlmStatus.DONE)
                 .build();
-        // 빌더에 없는 필드는 Reflection으로 주입하여 NPE 방지 및 데이터 설정
         ReflectionTestUtils.setField(newsletter, "id", 1L);
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
         ReflectionTestUtils.setField(newsletter, "thumbnailUrl", "http://thumb.url");
 
-        // 2. UserNewsletter 빌더를 통한 실제 객체 생성
         UserNewsletter userNewsletter = UserNewsletter.builder()
                 .newsletter(newsletter)
                 .memo("Memo")
@@ -65,6 +63,7 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -74,8 +73,8 @@ class NewsletterServiceTest {
 
         // then
         assertThat(response.newsletterSimpleSummary()).hasSize(1);
-        assertThat(response.newsletterSimpleSummary().get(0).title()).isEqualTo("Summary 1");
-        assertThat(response.newsletterSimpleSummary().get(0).content()).isEqualTo("Content 1");
+        assertThat(response.newsletterSimpleSummary().getFirst().title()).isEqualTo("Summary 1");
+        assertThat(response.isRead()).isTrue();
     }
 
     @Test
@@ -107,6 +106,7 @@ class NewsletterServiceTest {
 
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
+        assertThat(response.isRead()).isTrue();
     }
 
     @Test
@@ -116,26 +116,25 @@ class NewsletterServiceTest {
         Long userId = 1L;
         Long userNewsletterId = 10L;
 
-        // 실제 Category와 Topic 객체 생성
         Category userCategory = Category.builder().name("PersonalizedCategory").build();
-        ReflectionTestUtils.setField(userCategory, "id", 1L); // ID 주입
+        ReflectionTestUtils.setField(userCategory, "id", 1L);
         Topic userTopic = Topic.builder().name("PersonalizedTopic").build();
-        ReflectionTestUtils.setField(userTopic, "id", 10L); // ID 주입
+        ReflectionTestUtils.setField(userTopic, "id", 10L);
 
         Newsletter newsletter = Newsletter.builder()
                 .contentUrl("http://url")
                 .build();
-        ReflectionTestUtils.setField(newsletter, "id", 1L); // ID 주입
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
 
-        // 유저가 개인화한 정보를 담은 UserNewsletter 객체 생성
         UserNewsletter userNewsletter = UserNewsletter.builder()
                 .newsletter(newsletter)
                 .category(userCategory)
                 .topic(userTopic)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now()); // NPE 방어
+        ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -146,6 +145,7 @@ class NewsletterServiceTest {
         // then
         assertThat(response.categoryName()).isEqualTo("PersonalizedCategory");
         assertThat(response.topicName()).isEqualTo("PersonalizedTopic");
+        assertThat(response.isRead()).isFalse();
     }
 
     @Test
@@ -158,12 +158,11 @@ class NewsletterServiceTest {
         Newsletter newsletter = Newsletter.builder()
                 .contentUrl("http://url")
                 .build();
-        ReflectionTestUtils.setField(newsletter, "id", 1L); // ID 주입
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
         ReflectionTestUtils.setField(newsletter, "category", "OriginalCategory");
         ReflectionTestUtils.setField(newsletter, "topic", "OriginalTopic");
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
 
-        // 카테고리와 토픽이 null인 상태 (폴백 상황 시뮬레이션)
         UserNewsletter userNewsletter = UserNewsletter.builder()
                 .newsletter(newsletter)
                 .category(null)
@@ -171,6 +170,7 @@ class NewsletterServiceTest {
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -181,5 +181,34 @@ class NewsletterServiceTest {
         // then
         assertThat(response.categoryName()).isEqualTo("OriginalCategory");
         assertThat(response.topicName()).isEqualTo("OriginalTopic");
+        assertThat(response.isRead()).isFalse();
+    }
+
+    @Test
+    @DisplayName("updateIsRead should update status and save userNewsletter")
+    void updateIsRead_ShouldUpdateStatusAndSave() {
+        // given
+        Long userId = 1L;
+        Long userNewsletterId = 100L;
+
+        Newsletter newsletter = Newsletter.builder()
+                .contentUrl("http://example.com")
+                .build();
+
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .build();
+        ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
+
+        given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
+                .willReturn(Optional.of(userNewsletter));
+
+        // when
+        newsletterService.updateIsRead(userId, userNewsletterId);
+
+        // then
+        assertThat(userNewsletter.isRead()).isTrue();
+        verify(userNewsletterRepository).save(userNewsletter);
     }
 }

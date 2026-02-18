@@ -61,4 +61,9 @@ public class Collection extends BaseEntity {
         this.perspectiveType = perspectiveType;
         this.depthType = depthType;
     }
+
+    public void updateSummaries(String smallCardSummary, String mediumCardSummary) {
+        this.smallCardSummary = smallCardSummary;
+        this.mediumCardSummary = mediumCardSummary;
+    }
 }
