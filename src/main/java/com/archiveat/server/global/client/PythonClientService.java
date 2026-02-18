@@ -136,9 +136,9 @@ public class PythonClientService {
         }
 
         /**
-         * 네이버 뉴스 또는 일반 웹 콘텐츠 요약 요청
+         * Tistory 블로그 요약 요청
          *
-         * @param url      네이버 뉴스 또는 일반 웹 URL
+         * @param url      Tistory 블로그 URL
          * @param userMemo 사용자 메모 (분류 우선순위에 활용, 선택사항)
          * @return CompletableFuture<PythonSummaryResponse> 비동기 응답
          */

@@ -195,10 +195,16 @@ public class CollectionGeneratorService {
             pythonClientService.requestCollectionSummary(newsletterSummaries)
                     .thenAccept(response -> {
                         if (response.getAnalysis() != null) {
-                            collection.updateSummaries(
-                                    response.getAnalysis().getSmallCardSummary(),
-                                    response.getAnalysis().getMediumCardSummary());
-                            collectionRepository.save(collection);
+                            transactionTemplate.execute(status -> {
+                                Collection managed = collectionRepository.findById(collection.getId())
+                                        .orElse(null);
+                                if (managed != null) {
+                                    managed.updateSummaries(
+                                            response.getAnalysis().getSmallCardSummary(),
+                                            response.getAnalysis().getMediumCardSummary());
+                                }
+                                return null;
+                            });
                             log.info("Updated summaries for collection {}", collection.getId());
                         }
                     })
