@@ -91,7 +91,8 @@ class AuthServiceTest {
             String email = "test@example.com";
             User user = new User(email, "encoded_password", "nickname");
             given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches(anyString(), anyString())).willReturn(false);
+            // anyString() 대신 구체적인 값으로 stubbing 하여 테스트의 엄격함 강화
+            given(passwordEncoder.matches("wrong_password", "encoded_password")).willReturn(false);
 
             // when & then
             assertThatThrownBy(() -> authService.login(email, "wrong_password"))
@@ -122,12 +123,15 @@ class AuthServiceTest {
 
             given(jwtUtil.generateAccessToken(1L)).willReturn("access");
             given(jwtUtil.generateRefreshToken(1L)).willReturn("refresh");
+            given(tokenHashUtil.sha256Hex("refresh")).willReturn("hashed_refresh");
 
             // when
             AuthService.IssuedTokens result = authService.signupAndLogin(email, password, nickname);
 
             // then
             assertThat(result.accessToken()).isEqualTo("access");
+            assertThat(result.refreshToken()).isEqualTo("refresh");
+            assertThat(savedUser.getRefreshTokenHash()).isEqualTo("hashed_refresh");
             verify(userRepository, atLeastOnce()).save(any(User.class));
         }
 
@@ -195,20 +199,30 @@ class AuthServiceTest {
         }
     }
 
-    @Test
-    @DisplayName("로그아웃: 유저의 Refresh 토큰 해시를 제거한다")
-    void logout_Success() {
-        // given
-        Long userId = 1L;
-        User user = new User("t@e.com", "p", "n");
-        ReflectionTestUtils.setField(user, "refreshTokenHash", "some_hash");
-        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+    @Nested
+    @DisplayName("로그아웃 테스트")
+    class Logout {
+        @Test
+        @DisplayName("성공: 유저의 Refresh 토큰 해시를 제거한다")
+        void logout_Success() {
+            Long userId = 1L;
+            User user = new User("t@e.com", "p", "n");
+            given(userRepository.findById(userId)).willReturn(Optional.of(user));
 
-        // when
-        authService.logout(userId);
+            authService.logout(userId);
 
-        // then
-        assertThat(user.getRefreshTokenHash()).isNull();
-        verify(userRepository).save(user);
+            assertThat(user.getRefreshTokenHash()).isNull();
+            verify(userRepository).save(user);
+        }
+
+        @Test
+        @DisplayName("실패: 존재하지 않는 유저는 로그아웃할 수 없다")
+        void logout_Fail_UserNotFound() {
+            given(userRepository.findById(anyLong())).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> authService.logout(999L))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
+        }
     }
 }

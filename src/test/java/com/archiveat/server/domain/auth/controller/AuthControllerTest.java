@@ -13,8 +13,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,6 +56,8 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.accessToken").value("access"))
                 .andExpect(jsonPath("$.isSuccess").value(true))
                 .andDo(print());
+
+        verify(refreshTokenCookieProvider).set(any(), eq("refresh"));
     }
 
     @Test

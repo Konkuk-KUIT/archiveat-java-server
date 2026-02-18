@@ -42,33 +42,37 @@ class ReportServiceTest {
                 // given
                 Long userId = 1L;
 
-                // [Insight] 생성자 대신 정의된 @Builder를 사용하여 가독성 확보
                 UserNewsletter un1 = UserNewsletter.builder()
                         .depthType(DepthType.LIGHT)
                         .perspectiveType(PerspectiveType.NOW)
+                        .isRead(true) // [추가] 읽음 상태 명시
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
                 UserNewsletter un2 = UserNewsletter.builder()
                         .depthType(DepthType.DEEP)
                         .perspectiveType(PerspectiveType.FUTURE)
+                        .isRead(true) // [추가] 읽음 상태 명시
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
+                // 1. 저장된 뉴스레터 목록 (un1)
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
                         .thenReturn(List.of(un1));
+
+                // 2. 읽은 뉴스레터 목록 (분석의 기준이 되므로 un1과 un2를 모두 포함시키거나, 검증하려는 un1을 넣어야 함)
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
-                        .thenReturn(List.of(un2));
+                        .thenReturn(List.of(un1, un2)); // [수정] un1을 추가하여 lightCount가 1이 되도록 함
 
                 // when
                 WeeklyReportResponse response = reportService.getWeeklyReport(userId);
 
                 // then
                 assertThat(response).isNotNull();
-                assertThat(response.totalSavedCount()).isEqualTo(1);
-                assertThat(response.totalReadCount()).isEqualTo(1);
-                assertThat(response.lightCount()).isEqualTo(1); // un1 기준
-                assertThat(response.nowCount()).isEqualTo(1);
+                assertThat(response.totalSavedCount()).isEqualTo(1); // un1만 저장됨
+                assertThat(response.totalReadCount()).isEqualTo(2);  // un1, un2 읽음
+                assertThat(response.lightCount()).isEqualTo(1);     // un1이 LIGHT이므로 1
+                assertThat(response.nowCount()).isEqualTo(1);      // un1이 NOW이므로 1
         }
 
         @Test

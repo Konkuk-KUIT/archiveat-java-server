@@ -25,6 +25,6 @@ public class Category {
     @Builder
     public Category(String name, List<Topic> topics) {
         this.name = name;
-        this.topics = (topics != null) ? topics : new ArrayList<>();
+        this.topics = (topics != null) ? new ArrayList<>(topics) : new ArrayList<>();
     }
 }

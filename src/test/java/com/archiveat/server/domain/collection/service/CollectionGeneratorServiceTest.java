@@ -11,6 +11,7 @@ import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepositor
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.DepthType;
+import com.archiveat.server.global.common.constant.PerspectiveType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,6 +77,8 @@ class CollectionGeneratorServiceTest {
         given(userNewsletterRepository.findUncollectedNewsletters(1L, DepthType.LIGHT))
                 .willReturn(List.of(un1, un2));
         given(topicRepository.findByName("AI")).willReturn(Optional.of(Topic.builder().name("AI").build()));
+        given(userTopicRepository.findTopicNamesByUserIdAndPerspectiveType(1L, PerspectiveType.NOW))
+                .willReturn(List.of("AI"));
 
         // TransactionTemplate 모킹 (실행 시 콜백을 즉시 실행하도록 설정)
         given(transactionTemplate.execute(any())).willAnswer(invocation -> {
@@ -88,7 +91,9 @@ class CollectionGeneratorServiceTest {
 
         // then
         // LIGHT 타입의 컬렉션이 저장되었는지 검증
-        verify(collectionRepository, atLeastOnce()).save(argThat(c -> c.getDepthType() == DepthType.LIGHT));
+        verify(collectionRepository, atLeastOnce()).save(argThat(c ->
+                c.getDepthType() == DepthType.LIGHT && c.getPerspectiveType() == PerspectiveType.NOW
+        ));
     }
 
     @Test
@@ -117,5 +122,37 @@ class CollectionGeneratorServiceTest {
 
         // then
         verify(collectionRepository, never()).save(any(Collection.class));
+    }
+
+    @Test
+    @DisplayName("컬렉션 생성 성공: 오후 6시에는 DEEP(심층형) 컬렉션이 생성된다")
+    void generateCollections_Evening_DeepDepth() {
+        LocalTime eveningTime = LocalTime.of(18, 0);
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "id", 1L);
+
+        // 뉴스레터 2개 준비 (경계값 조건 충족)
+        Newsletter n1 = Newsletter.builder().build();
+        n1.updateCategoryAndTopic("IT", "AI");
+        Newsletter n2 = Newsletter.builder().build();
+        n2.updateCategoryAndTopic("IT", "AI");
+
+        given(userRepository.findAll()).willReturn(List.of(user));
+        given(userNewsletterRepository.findUncollectedNewsletters(1L, DepthType.DEEP)).willReturn(List.of(
+                UserNewsletter.builder().newsletter(n1).build(),
+                UserNewsletter.builder().newsletter(n2).build()
+        ));
+        given(topicRepository.findByName("AI")).willReturn(Optional.of(Topic.builder().name("AI").build()));
+        given(userTopicRepository.findTopicNamesByUserIdAndPerspectiveType(1L, PerspectiveType.NOW))
+                .willReturn(List.of("Economy", "Science"));
+        given(transactionTemplate.execute(any()))
+                .willAnswer(invocation -> ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
+
+        collectionGeneratorService.generateCollectionsForTime(eveningTime);
+
+        // DEEP 타입으로 생성되었는지 정밀 검증
+        verify(collectionRepository, times(2)).save(argThat(c ->
+                c.getDepthType() == DepthType.DEEP && c.getPerspectiveType() == PerspectiveType.FUTURE
+        ));
     }
 }

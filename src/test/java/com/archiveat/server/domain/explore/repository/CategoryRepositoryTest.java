@@ -19,27 +19,24 @@ import java.util.List;
 @Import(JpaConfig.class)
 public class CategoryRepositoryTest {
 
-    @Autowired
-    private CategoryRepository categoryRepository;
-    @Autowired
-    private TopicRepository topicRepository;
+    @Autowired private CategoryRepository categoryRepository;
+    @Autowired private TopicRepository topicRepository;
+    @Autowired private jakarta.persistence.EntityManager em;
 
     @Test
     @DisplayName("카테고리와 토픽 목록을 함께 조회한다")
     void findAllWithTopics_Success() {
-        // given
         Category category = Category.builder().name("기술").build();
         categoryRepository.save(category);
 
         Topic topic = Topic.builder().name("AI").category(category).build();
         topicRepository.save(topic);
 
-        category.getTopics().add(topic);
+        em.flush();
+        em.clear();
 
-        // when
         List<Category> categories = categoryRepository.findAll();
 
-        // then
         assertThat(categories).isNotEmpty();
         assertThat(categories.get(0).getTopics()).hasSize(1);
     }

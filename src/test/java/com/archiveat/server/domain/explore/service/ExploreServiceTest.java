@@ -14,6 +14,7 @@ import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,14 @@ class ExploreServiceTest {
 
     @InjectMocks
     private ExploreService exploreService;
+
+    private User mockUser;
+
+    @BeforeEach
+    void setUp() {
+        mockUser = mock(User.class);
+        lenient().when(mockUser.getId()).thenReturn(1L);
+    }
 
     @Test
     @DisplayName("[Explore] 메인 데이터 조회 테스트")
@@ -131,7 +140,7 @@ class ExploreServiceTest {
                 .contentUrl("http://example.com")
                 .build();
 
-        UserNewsletter userNewsletter = UserNewsletter.create(null, newsletter, null, null, null);
+        UserNewsletter userNewsletter = UserNewsletter.create(mockUser, newsletter, null, null, null);
         ReflectionTestUtils.setField(userNewsletter, "id", 100L);
         ReflectionTestUtils.setField(userNewsletter, "createdAt", LocalDateTime.now());
 
