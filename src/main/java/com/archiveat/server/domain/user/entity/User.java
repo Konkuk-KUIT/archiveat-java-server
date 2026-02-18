@@ -41,8 +41,7 @@ public class User extends BaseEntity {
     private String refreshTokenHash;
 
     @Builder
-    public User(Long id, String email, String nickname, EmploymentType employmentType) {
-        this.id = id;
+    public User(String email, String nickname, EmploymentType employmentType) {
         this.email = email;
         this.nickname = nickname;
         this.employmentType = employmentType;

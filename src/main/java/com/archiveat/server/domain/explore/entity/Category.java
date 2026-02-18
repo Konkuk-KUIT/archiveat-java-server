@@ -23,8 +23,7 @@ public class Category {
     private List<Topic> topics = new ArrayList<>(); // 초기화를 통해 NullPointerException 방지
 
     @Builder
-    public Category(Long id, String name, List<Topic> topics) {
-        this.id = id;
+    public Category(String name, List<Topic> topics) {
         this.name = name;
         this.topics = (topics != null) ? topics : new ArrayList<>();
     }
