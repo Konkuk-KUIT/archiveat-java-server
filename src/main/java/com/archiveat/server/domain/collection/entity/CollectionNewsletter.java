@@ -25,7 +25,8 @@ public class CollectionNewsletter {
     private Newsletter newsletter;
 
     @Builder
-    public CollectionNewsletter(Collection collection, Newsletter newsletter) {
+    public CollectionNewsletter(Long id, Collection collection, Newsletter newsletter) {
+        this.id = id;
         this.collection = collection;
         this.newsletter = newsletter;
     }
