@@ -22,7 +22,8 @@ public class Topic {
     private Category category;
 
     @Builder
-    public Topic(String name, Category category) {
+    public Topic(Long id, String name, Category category) {
+        this.id = id;
         this.name = name;
         this.category = category;
     }
