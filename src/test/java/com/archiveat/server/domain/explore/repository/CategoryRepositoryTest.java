@@ -1,33 +1,41 @@
 package com.archiveat.server.domain.explore.repository;
 
 import com.archiveat.server.domain.explore.entity.Category;
-import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.global.config.JpaConfig;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
-@SpringBootTest
+@DataJpaTest
 @ActiveProfiles("test")
+@Import(JpaConfig.class)
 public class CategoryRepositoryTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
 
     @Test
-    @Transactional
+    @DisplayName("카테고리와 토픽 목록을 함께 조회한다")
     public void testFindAllWithTopics() {
-        List<Category> categories = categoryRepository.findAll();
-        assertThat(categories).isNotEmpty();
+        Category category = Category.builder()
+                .name("테스트 카테고리")
+                .build();
+        categoryRepository.save(category);
 
-        for (Category category : categories) {
-            // topics가 lazy loading 없이 즉시 로딩되는지 검증
-            assertThat(category.getTopics()).isNotNull();
+        List<Category> categories = categoryRepository.findAll();
+
+        assertThat(categories).isNotEmpty();
+        assertThat(categories.getFirst().getName()).isEqualTo("테스트 카테고리");
+
+        for (Category c : categories) {
+            assertThat(c.getTopics()).isNotNull();
         }
     }
 }
