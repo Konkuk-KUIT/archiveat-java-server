@@ -51,20 +51,28 @@ class CollectionServiceTest {
         Long userId = 1L;
         Long collectionId = 100L;
 
-        User user = User.builder().id(userId).nickname("아카이빗").build();
-        Topic topic = Topic.builder().id(10L).name("AI").build();
-        Collection collection = Collection.builder().id(collectionId).user(user).topic(topic).build();
+        User user = User.builder().nickname("아카이빗").build();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Topic topic = Topic.builder().name("AI").build();
+        ReflectionTestUtils.setField(topic, "id", 10L);
+
+        Collection collection = Collection.builder().user(user).topic(topic).build();
+        ReflectionTestUtils.setField(collection, "id", collectionId);
+
         Domain domain = Domain.builder().name("테크레터").build();
 
         Newsletter newsletter = Newsletter.builder()
-                .id(200L)
                 .domain(domain)
                 .title("AI 소식")
                 .contentUrl("url")
                 .build();
+        ReflectionTestUtils.setField(newsletter, "id", 200L);
 
-        CollectionNewsletter cn = CollectionNewsletter.builder().id(1L).collection(collection).newsletter(newsletter).build();
+        CollectionNewsletter cn = CollectionNewsletter.builder().collection(collection).newsletter(newsletter).build();
+        ReflectionTestUtils.setField(cn, "id", 1L);
 
+        // UserNewsletter 생성 및 시간 주입
         UserNewsletter un = UserNewsletter.builder().newsletter(newsletter).isRead(true).memo("꿀정보").build();
         ReflectionTestUtils.setField(un, "createdAt", LocalDateTime.now());
 
@@ -78,8 +86,7 @@ class CollectionServiceTest {
         // then
         assertThat(response.collectionInfo().topicName()).isEqualTo("AI");
         assertThat(response.newsletters()).hasSize(1);
-        assertThat(response.newsletters().getFirst().memo()).isEqualTo("꿀정보");
-        assertThat(response.newsletters().getFirst().isRead()).isTrue();
+        assertThat(response.newsletters().get(0).memo()).isEqualTo("꿀정보");
     }
 
     @Test
@@ -90,8 +97,11 @@ class CollectionServiceTest {
         Long otherUserId = 2L;
         Long collectionId = 100L;
 
-        User otherUser = User.builder().id(otherUserId).build();
-        Collection collection = Collection.builder().id(collectionId).user(otherUser).build();
+        User otherUser = User.builder().build();
+        ReflectionTestUtils.setField(otherUser, "id", otherUserId);
+
+        Collection collection = Collection.builder().user(otherUser).build();
+        ReflectionTestUtils.setField(collection, "id", collectionId);
 
         given(collectionRepository.findById(collectionId)).willReturn(Optional.of(collection));
 

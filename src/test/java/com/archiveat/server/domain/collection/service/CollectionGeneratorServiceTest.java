@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -57,11 +58,14 @@ class CollectionGeneratorServiceTest {
     void generateCollections_Morning_LightDepth() {
         // given
         LocalTime morningTime = LocalTime.of(6, 0);
-        User user = User.builder().id(1L).build();
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "id", 1L);
 
-        Newsletter n1 = Newsletter.builder().id(10L).build();
+        Newsletter n1 = Newsletter.builder().build();
+        ReflectionTestUtils.setField(n1, "id", 10L);
         n1.updateCategoryAndTopic("IT", "AI");
-        Newsletter n2 = Newsletter.builder().id(11L).build();
+        Newsletter n2 = Newsletter.builder().build();
+        ReflectionTestUtils.setField(n2, "id", 11L);
         n2.updateCategoryAndTopic("IT", "AI");
 
         UserNewsletter un1 = UserNewsletter.builder().newsletter(n1).build();
@@ -92,8 +96,10 @@ class CollectionGeneratorServiceTest {
     void generateCollections_Skip_WhenSingleNewsletter() {
         // given
         LocalTime time = LocalTime.of(12, 0);
-        User user = User.builder().id(1L).build();
-        Newsletter n1 = Newsletter.builder().id(10L).build();
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "id", 1L);
+        Newsletter n1 = Newsletter.builder().build();
+        ReflectionTestUtils.setField(n1, "id", 10L);
         n1.updateCategoryAndTopic("IT", "AI");
         UserNewsletter un1 = UserNewsletter.builder().newsletter(n1).build();
 

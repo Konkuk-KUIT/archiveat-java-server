@@ -48,12 +48,12 @@ class NewsletterServiceTest {
 
         // 1. Newsletter 빌더를 통한 실제 객체 생성
         Newsletter newsletter = Newsletter.builder()
-                .id(1L)
                 .title("Newsletter Title")
                 .contentUrl("http://example.com")
                 .llmStatus(LlmStatus.DONE)
                 .build();
         // 빌더에 없는 필드는 Reflection으로 주입하여 NPE 방지 및 데이터 설정
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", summaryJson);
         ReflectionTestUtils.setField(newsletter, "thumbnailUrl", "http://thumb.url");
 
@@ -86,10 +86,10 @@ class NewsletterServiceTest {
         Long userNewsletterId = 100L;
 
         Newsletter newsletter = Newsletter.builder()
-                .id(1L)
                 .title("Newsletter Title")
                 .contentUrl("http://example.com")
                 .build();
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
 
         UserNewsletter userNewsletter = UserNewsletter.builder()
@@ -117,13 +117,15 @@ class NewsletterServiceTest {
         Long userNewsletterId = 10L;
 
         // 실제 Category와 Topic 객체 생성
-        Category userCategory = Category.builder().id(1L).name("PersonalizedCategory").build();
-        Topic userTopic = Topic.builder().id(10L).name("PersonalizedTopic").build();
+        Category userCategory = Category.builder().name("PersonalizedCategory").build();
+        ReflectionTestUtils.setField(userCategory, "id", 1L); // ID 주입
+        Topic userTopic = Topic.builder().name("PersonalizedTopic").build();
+        ReflectionTestUtils.setField(userTopic, "id", 10L); // ID 주입
 
         Newsletter newsletter = Newsletter.builder()
-                .id(1L)
                 .contentUrl("http://url")
                 .build();
+        ReflectionTestUtils.setField(newsletter, "id", 1L); // ID 주입
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");
 
         // 유저가 개인화한 정보를 담은 UserNewsletter 객체 생성
@@ -154,10 +156,9 @@ class NewsletterServiceTest {
         Long userNewsletterId = 11L;
 
         Newsletter newsletter = Newsletter.builder()
-                .id(1L)
                 .contentUrl("http://url")
                 .build();
-        // Newsletter 엔티티가 가진 원본 메타데이터 (빌더에 없으므로 Reflection 사용)
+        ReflectionTestUtils.setField(newsletter, "id", 1L); // ID 주입
         ReflectionTestUtils.setField(newsletter, "category", "OriginalCategory");
         ReflectionTestUtils.setField(newsletter, "topic", "OriginalTopic");
         ReflectionTestUtils.setField(newsletter, "newsletterSummary", "[]");

@@ -172,6 +172,7 @@ class AuthServiceTest {
             assertThat(result.accessToken()).isEqualTo("new_access");
             assertThat(result.refreshToken()).isEqualTo("new_refresh");
             assertThat(user.getRefreshTokenHash()).isEqualTo("new_hash");
+            verify(userRepository).save(user);
             verify(jwtUtil).validate(oldRefreshToken);
         }
 

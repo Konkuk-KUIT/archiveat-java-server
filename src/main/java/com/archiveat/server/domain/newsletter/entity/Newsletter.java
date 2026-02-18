@@ -67,8 +67,7 @@ public class Newsletter extends BaseEntity {
     }
 
     @Builder
-    public Newsletter(Long id, Domain domain, String title, String contentUrl, LlmStatus llmStatus) {
-        this.id = id;
+    public Newsletter(Domain domain, String title, String contentUrl, LlmStatus llmStatus) {
         this.domain = domain;
         this.title = title;
         this.contentUrl = contentUrl;

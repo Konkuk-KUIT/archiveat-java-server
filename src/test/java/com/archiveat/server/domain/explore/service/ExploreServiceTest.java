@@ -52,20 +52,20 @@ class ExploreServiceTest {
         Long userId = 1L;
 
         Topic aiTopic = Topic.builder()
-                .id(101L)
                 .name("AI")
                 .build();
+        ReflectionTestUtils.setField(aiTopic, "id", 101L);
 
         Topic devTopic = Topic.builder()
-                .id(102L)
                 .name("개발")
                 .build();
+        ReflectionTestUtils.setField(devTopic, "id", 102L);
 
         Category techCategory = Category.builder()
-                .id(1L)
                 .name("기술")
                 .topics(List.of(aiTopic, devTopic)) // 생성자 빌더로 연관관계까지 한 번에 설정
                 .build();
+        ReflectionTestUtils.setField(techCategory, "id", 1L);
 
         // Stubbing: 관계 설정
         when(categoryRepository.findAll()).thenReturn(List.of(techCategory));
@@ -123,7 +123,8 @@ class ExploreServiceTest {
         PageRequest pageable = PageRequest.of(0, 10);
 
         // 실제 객체 생성
-        Topic topic = Topic.builder().id(topicId).name("개발").build();
+        Topic topic = Topic.builder().name("개발").build();
+        ReflectionTestUtils.setField(topic, "id", topicId);
 
         Newsletter newsletter = Newsletter.builder()
                 .title("테크 소식")
@@ -160,18 +161,18 @@ class ExploreServiceTest {
 
         // 실제 빌더를 사용하여 Newsletter 생성
         Newsletter n1 = Newsletter.builder()
-                .id(1L)
                 .title("N1")
                 .contentUrl("http://url1")
                 .llmStatus(LlmStatus.DONE)
                 .build();
+        ReflectionTestUtils.setField(n1, "id", 1L);
 
         Newsletter n2 = Newsletter.builder()
-                .id(2L)
                 .title("N2")
                 .contentUrl("http://url2")
                 .llmStatus(LlmStatus.DONE)
                 .build();
+        ReflectionTestUtils.setField(n2, "id", 2L);
 
         // UserNewsletter 생성 및 Reflection을 통한 필드 주입
         UserNewsletter un1 = UserNewsletter.create(null, n1, null, null, null);
@@ -201,8 +202,10 @@ class ExploreServiceTest {
         // given
         Long userId = 1L;
         LocalDateTime now = LocalDateTime.now();
-        Category itCategory = Category.builder().id(1L).name("IT").build();
-        Topic aiTopic = Topic.builder().id(10L).name("AI").build();
+        Category itCategory = Category.builder().name("IT").build();
+        ReflectionTestUtils.setField(itCategory, "id", 1L);
+        Topic aiTopic = Topic.builder().name("AI").build();
+        ReflectionTestUtils.setField(aiTopic, "id", 10L);
 
         // 1. 분석 완료된 뉴스레터 (실제 객체)
         Newsletter doneN = Newsletter.builder()
@@ -248,11 +251,11 @@ class ExploreServiceTest {
         when(mockUser.getId()).thenReturn(userId);
 
         Newsletter newsletter = Newsletter.builder()
-                .id(1L)
                 .title("제목")
                 .contentUrl("http://url")
                 .llmStatus(LlmStatus.DONE)
                 .build();
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
 
         // 실제 객체를 생성하고 행위 검증을 위해 spy로 감싸기
         UserNewsletter userNewsletter = spy(UserNewsletter.create(mockUser, newsletter, null, null, "원본메모"));
@@ -260,8 +263,10 @@ class ExploreServiceTest {
         ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
 
         // 새로운 카테고리와 토픽 빌더로 생성
-        Category newCat = Category.builder().id(2L).name("경제").build();
-        Topic newTop = Topic.builder().id(20L).name("주식").category(newCat).build();
+        Category newCat = Category.builder().name("경제").build();
+        ReflectionTestUtils.setField(newCat, "id", 2L);
+        Topic newTop = Topic.builder().name("주식").category(newCat).build();
+        ReflectionTestUtils.setField(newTop, "id", 20L);
 
         when(userNewsletterRepository.findById(100L)).thenReturn(Optional.of(userNewsletter));
         when(categoryRepository.findById(2L)).thenReturn(Optional.of(newCat));
