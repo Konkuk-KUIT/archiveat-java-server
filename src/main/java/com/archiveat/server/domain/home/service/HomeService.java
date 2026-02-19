@@ -1,6 +1,5 @@
 package com.archiveat.server.domain.home.service;
 
-import com.archiveat.server.domain.collection.repository.CollectionNewsletterRepository;
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
@@ -26,7 +25,6 @@ public class HomeService {
 
     private final UserNewsletterRepository userNewsletterRepository;
     private final CollectionRepository collectionRepository;
-    private final CollectionNewsletterRepository collectionNewsletterRepository;
 
     @Transactional(readOnly = true)
     public HomeResponse getHomeData(Long userId) {
@@ -60,8 +58,9 @@ public class HomeService {
                 .map(col -> {
                     // Todo: N+1 문제 최적화 필요
                     // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 매핑 엔티티를 통해 썸네일 정보를 수집합니다.
-                    List<HomeResponse.ThumbnailInfo> thumbnails = collectionNewsletterRepository
-                            .findAllByCollectionId(col.getId())
+                    // Refactored to use Batch Fetching
+                    // 인사이트: 컬렉션은 여러 뉴스레터를 포함하므로, 배치를 통해 N+1 문제를 해결합니다.
+                    List<HomeResponse.ThumbnailInfo> thumbnails = col.getCollectionNewsletters()
                             .stream()
                             .map(cn -> new HomeResponse.ThumbnailInfo(
                                     cn.getNewsletter().getThumbnailUrl(),

@@ -17,6 +17,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_batch_fetch_size: 100
 
 jwt:
   secret: vmfhaltjxptmxh_dkzkdlqlt_tltmxlal_wnfrjt_xkzk_01234567890123456789 # HS256을 위해 충분히 긴 문자열
