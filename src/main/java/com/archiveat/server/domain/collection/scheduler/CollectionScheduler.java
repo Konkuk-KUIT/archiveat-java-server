@@ -31,4 +31,12 @@ public class CollectionScheduler {
             log.error("Error during scheduled collection generation", e);
         }
     }
+
+    /**
+     * 시연용 임시 스케줄링 (16:30)
+     */
+    @Scheduled(cron = "0 30 16 * * *", zone = "Asia/Seoul")
+    public void scheduleDemoCollectionGeneration() {
+        scheduleCollectionGeneration();
+    }
 }
