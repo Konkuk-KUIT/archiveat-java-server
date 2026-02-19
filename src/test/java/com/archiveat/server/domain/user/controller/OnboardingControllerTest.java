@@ -8,14 +8,13 @@ import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.EmploymentType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Order;
+import org.springframework.core.annotation.Order;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
@@ -32,7 +31,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -128,7 +126,7 @@ class OnboardingControllerTest {
         ArgumentCaptor<OnboardingInfoRequest> captor = ArgumentCaptor.forClass(OnboardingInfoRequest.class);
 
         // 1. 서비스가 호출되었는지 확인하며 전달된 인자를 캡처합니다.
-        verify(onboardingService).submitOnboardingInfo(eq(1L), captor.capture());
+        verify(onboardingService).submitOnboardingInfo(eq(userId), captor.capture());
 
         // 2. 캡처된 DTO를 꺼내 내부 값을 단언(Assert)합니다.
         OnboardingInfoRequest captured = captor.getValue();

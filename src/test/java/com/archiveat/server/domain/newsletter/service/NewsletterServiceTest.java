@@ -98,17 +98,21 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        // 초기값은 false이지만 서비스 호출 후에는 true가 되어야 합니다.
         ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when - 시그니처 반영
+        // when
         SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId);
 
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
         assertThat(response.isRead()).isTrue();
+
+        // 상태가 변경되었으므로 save() 메서드가 호출되었는지 검증합니다.
+        verify(userNewsletterRepository).save(userNewsletter);
     }
 
     @Test
@@ -183,6 +187,7 @@ class NewsletterServiceTest {
         assertThat(response.categoryName()).isEqualTo("OriginalCategory");
         assertThat(response.topicName()).isEqualTo("OriginalTopic");
         assertThat(response.isRead()).isFalse();
+        verifyNoMoreInteractions(userNewsletterRepository);
     }
 
     @Test

@@ -17,10 +17,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -45,17 +43,17 @@ class AuthControllerTest {
         LoginRequest request = new LoginRequest("test@example.com", "password123");
         AuthService.IssuedTokens tokens = new AuthService.IssuedTokens("access", "refresh");
 
-        given(authService.login(anyString(), anyString())).willReturn(tokens);
+        given(authService.login(eq("test@example.com"), eq("password123"))).willReturn(tokens);
 
         // when & then
         mockMvc.perform(post("/auth/login")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("access"))
                 .andExpect(jsonPath("$.isSuccess").value(true));
 
+        verify(authService).login(eq("test@example.com"), eq("password123"));
         verify(refreshTokenCookieProvider).set(any(), eq("refresh"));
     }
 

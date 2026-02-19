@@ -283,7 +283,7 @@ class ExploreServiceTest {
 
         // then
         // 엔티티 내부 메서드가 호출되었는지 실제 동작 확인
-        verify(userNewsletter).updateClassification(any(Category.class), any(Topic.class), eq("메모 수정"));
+        verify(userNewsletter).updateClassification(eq(newCat), eq(newTop), eq("메모 수정"));
         assertThat(response.category().name()).isEqualTo("경제");
     }
 

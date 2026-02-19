@@ -38,7 +38,7 @@ public class CategoryRepositoryTest {
 
         List<Category> categories = categoryRepository.findAll();
 
-        assertThat(categories).isNotEmpty();
+        assertThat(categories).hasSize(1);
         assertThat(categories.get(0).getTopics()).hasSize(1);
     }
 }
