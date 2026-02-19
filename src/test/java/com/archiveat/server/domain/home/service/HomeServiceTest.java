@@ -2,7 +2,6 @@ package com.archiveat.server.domain.home.service;
 
 import com.archiveat.server.domain.collection.entity.Collection;
 import com.archiveat.server.domain.collection.entity.CollectionNewsletter;
-import com.archiveat.server.domain.collection.repository.CollectionNewsletterRepository;
 import com.archiveat.server.domain.collection.repository.CollectionRepository;
 import com.archiveat.server.domain.home.dto.response.HomeResponse;
 import com.archiveat.server.domain.newsletter.entity.Domain;
@@ -34,8 +33,6 @@ public class HomeServiceTest {
     private UserNewsletterRepository userNewsletterRepository;
     @Mock
     private CollectionRepository collectionRepository;
-    @Mock
-    private CollectionNewsletterRepository collectionNewsletterRepository;
 
     @InjectMocks
     private HomeService homeService;
@@ -86,11 +83,11 @@ public class HomeServiceTest {
                     when(cn.getNewsletter()).thenReturn(n);
                     return cn;
                 }).collect(Collectors.toList());
+        when(mockCol.getCollectionNewsletters()).thenReturn(mockMapping);
 
         // Mock 리포지토리 설정
         when(userNewsletterRepository.findAllByUserId(userId)).thenReturn(mockUserNewsletters);
         when(collectionRepository.findAllByUserId(userId)).thenReturn(List.of(mockCol));
-        when(collectionNewsletterRepository.findAllByCollectionId(100L)).thenReturn(mockMapping);
 
         // when
         HomeResponse response = homeService.getHomeData(userId);
@@ -185,10 +182,10 @@ public class HomeServiceTest {
                     when(cn.getNewsletter()).thenReturn(n);
                     return cn;
                 }).collect(Collectors.toList());
+        when(mockCol.getCollectionNewsletters()).thenReturn(mockMapping);
 
         when(userNewsletterRepository.findAllByUserId(userId)).thenReturn(mockUserNewsletters);
         when(collectionRepository.findAllByUserId(userId)).thenReturn(List.of(mockCol));
-        when(collectionNewsletterRepository.findAllByCollectionId(200L)).thenReturn(mockMapping);
 
         // when
         HomeResponse response = homeService.getHomeData(userId);
