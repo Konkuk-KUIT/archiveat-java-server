@@ -2,14 +2,21 @@ package com.archiveat.server.domain.newsletter.service;
 
 import com.archiveat.server.domain.explore.entity.Category;
 import com.archiveat.server.domain.explore.entity.Topic;
+import com.archiveat.server.domain.newsletter.dto.response.GenerateNewsletterResponse;
 import com.archiveat.server.domain.newsletter.dto.response.SimpleViewNewsletterResponse;
 import com.archiveat.server.domain.newsletter.dto.response.ViewNewsletterResponse;
+import com.archiveat.server.domain.newsletter.entity.Domain;
 import com.archiveat.server.domain.newsletter.entity.Newsletter;
 import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
+import com.archiveat.server.domain.newsletter.event.NewsletterProcessRequestedEvent;
+import com.archiveat.server.domain.newsletter.repository.DomainRepository;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
+import com.archiveat.server.domain.user.entity.User;
+import com.archiveat.server.domain.user.repository.UserRepository;
 import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.LlmStatus;
 import com.archiveat.server.global.common.constant.PerspectiveType;
+import com.archiveat.server.global.util.UrlRedirectResolver;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,12 +25,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -36,6 +49,18 @@ class NewsletterServiceTest {
 
     @Mock
     private UserNewsletterRepository userNewsletterRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private DomainRepository domainRepository;
+    @Mock
+    private NewsletterSynchronizer newsletterSynchronizer;
+    @Mock
+    private UrlRedirectResolver urlRedirectResolver;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
+    private TransactionTemplate transactionTemplate;
 
     @Spy
     private ObjectMapper objectMapper;
@@ -64,12 +89,12 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // 이미 읽음 상태인 경우를 가정 (사전조건)
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when - 팀원이 변경한 시그니처 반영 (boolean 파라미터 제거)
+        // when
         SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId);
 
         // then
@@ -98,7 +123,6 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        // 초기값은 false이지만 서비스 호출 후에는 true가 되어야 합니다.
         ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
@@ -110,8 +134,6 @@ class NewsletterServiceTest {
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
         assertThat(response.isRead()).isTrue();
-
-        // 상태가 변경되었으므로 save() 메서드가 호출되었는지 검증합니다.
         verify(userNewsletterRepository).save(userNewsletter);
     }
 
@@ -145,7 +167,7 @@ class NewsletterServiceTest {
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when - 시그니처 반영 (boolean 파라미터 제거)
+        // when
         ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
         // then
@@ -180,7 +202,7 @@ class NewsletterServiceTest {
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when - 시그니처 반영
+        // when
         ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
         // then
@@ -233,7 +255,7 @@ class NewsletterServiceTest {
                 .newsletter(newsletter)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // [Reason] 이미 true인 상태를 가정합니다.
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -242,7 +264,51 @@ class NewsletterServiceTest {
         newsletterService.updateIsRead(userId, userNewsletterId);
 
         // then
-        assertThat(userNewsletter.isRead()).isTrue(); // [Reason] 다시 false로 변하지 않고 true가 유지되는지 확인합니다.
-        verify(userNewsletterRepository).save(userNewsletter); // 상태 변화가 없더라도 save는 호출되어 시간 등이 갱신될 수 있음을 확인합니다.
+        assertThat(userNewsletter.isRead()).isTrue();
+        verify(userNewsletterRepository).save(userNewsletter);
+    }
+
+    @Test
+    @DisplayName("뉴스레터 생성 성공: 새로운 URL 요청 시 PENDING 상태로 저장되고 분석 이벤트가 발행된다")
+    void generateNewsletter_Success_New() {
+        // given
+        Long userId = 1L;
+        String url = "https://example.com/news";
+        String memo = "테스트 메모";
+
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        Domain domain = Domain.builder().name("Example").build();
+        Newsletter newsletter = Newsletter.createPending(domain, url);
+        ReflectionTestUtils.setField(newsletter, "id", 500L);
+
+        given(urlRedirectResolver.resolveIfShortUrl(any())).willReturn(url);
+
+        given(transactionTemplate.execute(any())).willAnswer(invocation -> {
+            // invocation.getArgument(0)을 통해 전달된 TransactionCallback을 꺼냅니다.
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            // 콜백의 로직을 즉시 실행하여 결과를 반환합니다.
+            return callback.doInTransaction(null);
+        });
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(newsletterSynchronizer.getOrCreateDomain(any())).willReturn(domain);
+        given(newsletterSynchronizer.getOrCreatePendingNewsletter(eq(domain), eq(url))).willReturn(newsletter);
+        given(userNewsletterRepository.existsByUserAndNewsletter(user, newsletter)).willReturn(false);
+
+        // when
+        GenerateNewsletterResponse response = newsletterService.generateNewsletter(userId, url, memo);
+
+        // then
+        assertThat(response.llmStatus()).isEqualTo("PENDING");
+        verify(applicationEventPublisher).publishEvent(any(NewsletterProcessRequestedEvent.class));
+
+        // [Insight] argThat을 통해 실제 객체의 내부 값들이 서비스 로직을 통해 어떻게 구성되었는지 정밀 검증합니다.
+        verify(userNewsletterRepository).save(argThat(un ->
+                un.getUser().equals(user) &&
+                        un.getNewsletter().equals(newsletter) &&
+                        un.getMemo().equals(memo)
+        ));
     }
 }
