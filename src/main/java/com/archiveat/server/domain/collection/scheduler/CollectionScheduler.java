@@ -33,9 +33,9 @@ public class CollectionScheduler {
     }
 
     /**
-     * 시연용 임시 스케줄링 (16:30)
+     * 시연용 임시 스케줄링 (17:10)
      */
-    @Scheduled(cron = "0 40 16 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 10 17 * * *", zone = "Asia/Seoul")
     public void scheduleDemoCollectionGeneration() {
         scheduleCollectionGeneration();
     }
