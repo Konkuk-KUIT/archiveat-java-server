@@ -90,20 +90,10 @@ public class NewsletterService {
      * 뉴스레터 AI 요약 상세 조회
      */
     @Transactional
-    public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId, boolean autoMarkRead) {
+    public ViewNewsletterResponse viewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
-
-        if (autoMarkRead) {
-            if (!userNewsletter.isRead())
-                userNewsletter.updateIsRead();
-            else
-                userNewsletter.updateLastViewedAt();
-        } else {
-            userNewsletter.updateLastViewedAt();
-        }
-        userNewsletterRepository.save(userNewsletter);
 
         Newsletter newsletter = userNewsletter.getNewsletter();
         List<NewsletterSummaryBlock> summaryBlocks = parseNewsletterSummary(newsletter.getNewsletterSummary());
@@ -155,20 +145,12 @@ public class NewsletterService {
      * 뉴스레터 Simple 상세 조회
      */
     @Transactional
-    public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId,
-            boolean autoMarkRead) {
+    public SimpleViewNewsletterResponse simpleViewUserNewsletter(Long userId, Long userNewsletterId) {
         UserNewsletter userNewsletter = userNewsletterRepository
                 .findByIdAndUser_Id(userNewsletterId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NEWSLETTER_NOT_FOUND));
 
-        if (autoMarkRead) {
-            if (!userNewsletter.isRead())
-                userNewsletter.updateIsRead();
-            else
-                userNewsletter.updateLastViewedAt();
-        } else {
-            userNewsletter.updateLastViewedAt();
-        }
+        userNewsletter.updateIsRead();
         userNewsletterRepository.save(userNewsletter);
 
         Newsletter newsletter = userNewsletter.getNewsletter();

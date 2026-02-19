@@ -63,8 +63,7 @@ class NewsletterServiceTest {
 
                 // when
                 SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId,
-                                userNewsletterId,
-                                true);
+                                userNewsletterId);
 
                 // then
                 assertThat(response.newsletterSimpleSummary()).hasSize(1);
@@ -100,8 +99,7 @@ class NewsletterServiceTest {
 
                 // when
                 SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId,
-                                userNewsletterId,
-                                true);
+                                userNewsletterId);
 
                 // then
                 assertThat(response.newsletterSimpleSummary()).isEmpty();
@@ -135,7 +133,7 @@ class NewsletterServiceTest {
                 given(userTopic.getName()).willReturn("PersonalizedTopic");
 
                 // when
-                ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+                ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
                 // then
                 assertThat(response.categoryName()).isEqualTo("PersonalizedCategory");
@@ -168,7 +166,7 @@ class NewsletterServiceTest {
                 given(newsletter.getTopic()).willReturn("OriginalTopic");
 
                 // when
-                ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+                ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
                 // then
                 assertThat(response.categoryName()).isEqualTo("OriginalCategory");

@@ -28,37 +28,23 @@ public class NewsletterController {
                 return ApiResponse.ok(deleteNewsletterResponse); // 204
         }
 
-        /**
-         * AI 요약 상세 조회
-         * 
-         * @param autoMarkRead true(기본값): 컴렉션/탐색 탭에서 자동 읽음 처리, false: 홈 탭에서 버튼 클릭 시만 처리
-         */
         @GetMapping("/{userNewsletterId}")
         public ApiResponse<ViewNewsletterResponse> viewNewsletter(
                         @PathVariable Long userNewsletterId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestParam(defaultValue = "true") boolean autoMarkRead) {
+                        @AuthenticationPrincipal Long userId) {
                 ViewNewsletterResponse viewNewsletterResponse = newsletterService.viewUserNewsletter(
                                 userId,
-                                userNewsletterId,
-                                autoMarkRead);
+                                userNewsletterId);
                 return ApiResponse.ok(viewNewsletterResponse);
         }
 
-        /**
-         * Simple 상세 조회
-         * 
-         * @param autoMarkRead true(기본값): 컴렉션/탐색 탭에서 자동 읽음 처리, false: 홈 탭에서 버튼 클릭 시만 처리
-         */
         @GetMapping("/{userNewsletterId}/simple")
         public ApiResponse<SimpleViewNewsletterResponse> simpleViewNewsletter(
                         @PathVariable Long userNewsletterId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestParam(defaultValue = "true") boolean autoMarkRead) {
+                        @AuthenticationPrincipal Long userId) {
                 SimpleViewNewsletterResponse simpleViewNewsletterResponse = newsletterService.simpleViewUserNewsletter(
                                 userId,
-                                userNewsletterId,
-                                autoMarkRead);
+                                userNewsletterId);
                 return ApiResponse.ok(simpleViewNewsletterResponse);
         }
 
