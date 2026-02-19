@@ -54,11 +54,11 @@ class ReportServiceTest {
                         .lastViewedAt(LocalDateTime.now())
                         .build();
 
-                // 1. 저장된 뉴스레터 (un1만 이번 주 저장되었다고 가정)
+                // 1. 이번 주 저장된 목록에 un1, un2 모두 포함 (총 2개)
                 when(userNewsletterRepository.findByUserIdAndCreatedAtBetween(eq(userId), any(), any()))
-                        .thenReturn(List.of(un1));
+                        .thenReturn(List.of(un1, un2));
 
-                // 2. 이번 주 읽은 뉴스레터 (un1, un2 모두 포함하여 통계 수치 확보)
+                // 2. 이번 주 읽은 목록에도 un1, un2 모두 포함
                 when(userNewsletterRepository.findByUserIdAndLastViewedAtBetweenAndIsReadTrue(eq(userId), any(), any()))
                         .thenReturn(List.of(un1, un2));
 
@@ -67,10 +67,14 @@ class ReportServiceTest {
 
                 // then
                 assertThat(response).isNotNull();
-                assertThat(response.totalSavedCount()).isEqualTo(1); // un1
-                assertThat(response.totalReadCount()).isEqualTo(2);  // un1, un2
-                assertThat(response.lightCount()).isEqualTo(1);     // un1(LIGHT)
-                assertThat(response.nowCount()).isEqualTo(1);       // un1(NOW)
+                assertThat(response.totalSavedCount()).isEqualTo(2); // 1 -> 2로 변경
+                assertThat(response.totalReadCount()).isEqualTo(2);
+
+                // 저장된 목록(un1, un2)을 기준으로 각 타입이 1개씩인지 확인
+                assertThat(response.lightCount()).isEqualTo(1);  // un1(LIGHT)
+                assertThat(response.deepCount()).isEqualTo(1);   // un2(DEEP)
+                assertThat(response.nowCount()).isEqualTo(1);    // un1(NOW)
+                assertThat(response.futureCount()).isEqualTo(1); // un2(FUTURE)
         }
 
         @Test

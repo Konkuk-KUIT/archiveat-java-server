@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class NewsletterServiceTest {
@@ -63,7 +64,7 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // 서비스 호출 결과가 읽음 상태라고 가정
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // 이미 읽음 상태인 경우를 가정 (사전조건)
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -97,7 +98,7 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "isRead", true);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
@@ -147,6 +148,7 @@ class NewsletterServiceTest {
         assertThat(response.categoryName()).isEqualTo("PersonalizedCategory");
         assertThat(response.topicName()).isEqualTo("PersonalizedTopic");
         assertThat(response.isRead()).isFalse();
+        verifyNoMoreInteractions(userNewsletterRepository);
     }
 
     @Test
@@ -166,8 +168,6 @@ class NewsletterServiceTest {
 
         UserNewsletter userNewsletter = UserNewsletter.builder()
                 .newsletter(newsletter)
-                .category(null)
-                .topic(null)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
         ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
@@ -211,5 +211,33 @@ class NewsletterServiceTest {
         // then
         assertThat(userNewsletter.isRead()).isTrue();
         verify(userNewsletterRepository).save(userNewsletter);
+    }
+
+    @Test
+    @DisplayName("이미 읽음 상태일 때 updateIsRead 호출 시 true 상태를 유지한다 (멱등성 보장)")
+    void updateIsRead_ShouldMaintainStatusAndSave_WhenAlreadyRead() {
+        // given
+        Long userId = 1L;
+        Long userNewsletterId = 101L;
+
+        Newsletter newsletter = Newsletter.builder()
+                .contentUrl("http://example.com")
+                .build();
+
+        UserNewsletter userNewsletter = UserNewsletter.builder()
+                .newsletter(newsletter)
+                .build();
+        ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // [Reason] 이미 true인 상태를 가정합니다.
+
+        given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
+                .willReturn(Optional.of(userNewsletter));
+
+        // when
+        newsletterService.updateIsRead(userId, userNewsletterId);
+
+        // then
+        assertThat(userNewsletter.isRead()).isTrue(); // [Reason] 다시 false로 변하지 않고 true가 유지되는지 확인합니다.
+        verify(userNewsletterRepository).save(userNewsletter); // 상태 변화가 없더라도 save는 호출되어 시간 등이 갱신될 수 있음을 확인합니다.
     }
 }

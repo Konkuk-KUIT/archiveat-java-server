@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -21,7 +22,7 @@ public class CategoryRepositoryTest {
 
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private TopicRepository topicRepository;
-    @Autowired private jakarta.persistence.EntityManager em;
+    @Autowired private TestEntityManager em;
 
     @Test
     @DisplayName("카테고리와 토픽 목록을 함께 조회한다")

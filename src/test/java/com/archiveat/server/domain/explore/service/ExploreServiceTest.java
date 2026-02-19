@@ -193,7 +193,7 @@ class ExploreServiceTest {
         ReflectionTestUtils.setField(un2, "createdAt", day2);
 
         // Repository는 실제 객체 리스트를 반환하도록 설정
-        when(userNewsletterRepository.findAllInboxByUserId(userId)).thenReturn(List.of(un2, un1));
+        when(userNewsletterRepository.findAllInboxByUserId(userId)).thenReturn(List.of(un1, un2));
         when(categoryRepository.findAll()).thenReturn(List.of());
         when(topicRepository.findAll()).thenReturn(List.of());
 
@@ -255,9 +255,6 @@ class ExploreServiceTest {
         // given
         Long userId = 1L;
         ClassificationRequest request = new ClassificationRequest(2L, 20L, "메모 수정");
-
-        User mockUser = mock(User.class); // User는 모킹 유지
-        when(mockUser.getId()).thenReturn(userId);
 
         Newsletter newsletter = Newsletter.builder()
                 .title("제목")

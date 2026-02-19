@@ -54,8 +54,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("access"))
-                .andExpect(jsonPath("$.isSuccess").value(true))
-                .andDo(print());
+                .andExpect(jsonPath("$.isSuccess").value(true));
 
         verify(refreshTokenCookieProvider).set(any(), eq("refresh"));
     }
@@ -71,7 +70,6 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest()) // 400 Bad Request 기대
-                .andDo(print());
+                .andExpect(status().isBadRequest()); // 400 Bad Request 기대
     }
 }

@@ -8,7 +8,9 @@ import com.archiveat.server.global.common.constant.DepthType;
 import com.archiveat.server.global.common.constant.EmploymentType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -16,6 +18,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.Ordered;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -28,6 +31,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -53,6 +57,7 @@ class OnboardingControllerTest {
     private ObjectMapper objectMapper;
 
     @TestConfiguration
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     static class TestConfig implements WebMvcConfigurer {
         @Override
         public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -81,8 +86,7 @@ class OnboardingControllerTest {
         mockMvc.perform(post("/user/nickname")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andDo(print());
+                .andExpect(status().isOk());
 
         // 서비스가 테스트용 ID(1L)와 함께 정확히 호출되었는지 검증
         verify(onboardingService).editNickname(eq(1L), eq("새닉네임"));
@@ -100,36 +104,55 @@ class OnboardingControllerTest {
         // when & then
         mockMvc.perform(get("/user/metadata"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.employmentTypes[0]").value("STUDENT"))
-                .andDo(print());
+                .andExpect(jsonPath("$.data.employmentTypes[0]").value("STUDENT"));
     }
 
     @Test
     @DisplayName("온보딩 정보 제출 성공: 복잡한 DTO를 올바르게 전송한다")
     void submitOnboardingInfo_Success() throws Exception {
         // given
+        Long userId = 1L;
         OnboardingInfoRequest.AvailabilityRequest availability = new OnboardingInfoRequest.AvailabilityRequest(
                 DepthType.LIGHT, DepthType.DEEP, DepthType.LIGHT, DepthType.DEEP
         );
         OnboardingInfoRequest.CategoryInterestRequest interest = new OnboardingInfoRequest.CategoryInterestRequest(1L, List.of(10L, 11L));
         OnboardingInfoRequest request = new OnboardingInfoRequest(EmploymentType.STUDENT, availability, List.of(interest));
 
-        // when & then
+        // when
         mockMvc.perform(post("/user/metadata")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andDo(print());
+                .andExpect(status().isOk());
 
-        // 서비스 호출 인자값 검증 (ID가 1L로 잘 들어갔는지 확인)
-        verify(onboardingService).submitOnboardingInfo(eq(1L), any(OnboardingInfoRequest.class));
+        // then
+        ArgumentCaptor<OnboardingInfoRequest> captor = ArgumentCaptor.forClass(OnboardingInfoRequest.class);
+
+        // 1. 서비스가 호출되었는지 확인하며 전달된 인자를 캡처합니다.
+        verify(onboardingService).submitOnboardingInfo(eq(1L), captor.capture());
+
+        // 2. 캡처된 DTO를 꺼내 내부 값을 단언(Assert)합니다.
+        OnboardingInfoRequest captured = captor.getValue();
+
+        assertThat(captured.employmentType()).isEqualTo(EmploymentType.STUDENT);
+
+        assertThat(captured.availability().pref_morning()).isEqualTo(DepthType.LIGHT);
+        assertThat(captured.availability().pref_lunch()).isEqualTo(DepthType.DEEP);
+
+        // 관심사 리스트 검증
+        assertThat(captured.interests()).hasSize(1);
+        assertThat(captured.interests().get(0).categoryId()).isEqualTo(1L);
+        assertThat(captured.interests().get(0).topicIds()).containsExactly(10L, 11L);
     }
 
     @Test
-    @DisplayName("온보딩 정보 제출 실패: 필수 값 누락 시 400 에러를 반환한다")
-    void submitOnboardingInfo_Fail_Validation() throws Exception {
-        // given - EmploymentType이 null인 부적절한 요청
-        OnboardingInfoRequest request = new OnboardingInfoRequest(null, null, List.of());
+    @DisplayName("온보딩 정보 제출 실패: 직업군(employmentType)이 누락되면 400 에러와 메시지를 반환한다")
+    void submitOnboardingInfo_Fail_MissingEmploymentType() throws Exception {
+        // given
+        OnboardingInfoRequest request = new OnboardingInfoRequest(
+                null,
+                new OnboardingInfoRequest.AvailabilityRequest(DepthType.LIGHT, DepthType.DEEP, DepthType.LIGHT, DepthType.DEEP),
+                List.of(new OnboardingInfoRequest.CategoryInterestRequest(1L, List.of(10L)))
+        );
 
         // when & then
         mockMvc.perform(post("/user/metadata")
@@ -137,6 +160,25 @@ class OnboardingControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.isSuccess").value(false))
+                .andExpect(jsonPath("$.message").value("직업 군 정보는 필수입니다."))
                 .andDo(print());
+    }
+
+    @Test
+    @DisplayName("온보딩 정보 제출 실패: 시간대 설정(availability)이 누락되면 400 에러를 반환한다")
+    void submitOnboardingInfo_Fail_MissingAvailability() throws Exception {
+        // given
+        OnboardingInfoRequest request = new OnboardingInfoRequest(
+                EmploymentType.STUDENT,
+                null,
+                List.of(new OnboardingInfoRequest.CategoryInterestRequest(1L, List.of(10L)))
+        );
+
+        // when & then
+        mockMvc.perform(post("/user/metadata")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("시간대별 선호도 정보는 필수입니다."));
     }
 }
