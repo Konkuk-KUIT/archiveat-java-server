@@ -370,6 +370,7 @@ class NewsletterServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(newsletterSynchronizer.getOrCreateDomain(any())).willReturn(Domain.builder().name("Test").build());
         given(newsletterSynchronizer.getOrCreatePendingNewsletter(any(), eq(url))).willReturn(existingNewsletter);
+        given(userNewsletterRepository.existsByUserAndNewsletter(any(), any())).willReturn(false);
 
         // 유저 관심사 카테고리에 '기술'이 포함되어 있다고 가정 (-> NOW 라벨)
         given(userTopicRepository.findCategoryNamesByUserIdAndPerspectiveType(userId, PerspectiveType.NOW))
