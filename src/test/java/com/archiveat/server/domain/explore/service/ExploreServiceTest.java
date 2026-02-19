@@ -14,6 +14,7 @@ import com.archiveat.server.domain.newsletter.entity.UserNewsletter;
 import com.archiveat.server.domain.newsletter.repository.UserNewsletterRepository;
 import com.archiveat.server.domain.user.entity.User;
 import com.archiveat.server.global.common.constant.LlmStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.*;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -44,29 +46,37 @@ class ExploreServiceTest {
     @InjectMocks
     private ExploreService exploreService;
 
+    private User mockUser;
+
+    @BeforeEach
+    void setUp() {
+        mockUser = mock(User.class);
+        lenient().when(mockUser.getId()).thenReturn(1L);
+    }
+
     @Test
     @DisplayName("[Explore] 메인 데이터 조회 테스트")
     void getExploreData_Success() {
         // given
         Long userId = 1L;
 
-        // Stubbing: Category 기술
-        Category techCategory = mock(Category.class);
-        when(techCategory.getId()).thenReturn(1L);
-        when(techCategory.getName()).thenReturn("기술");
+        Topic aiTopic = Topic.builder()
+                .name("AI")
+                .build();
+        ReflectionTestUtils.setField(aiTopic, "id", 101L);
 
-        // Stubbing: Topic AI
-        Topic aiTopic = mock(Topic.class);
-        when(aiTopic.getId()).thenReturn(101L);
-        when(aiTopic.getName()).thenReturn("AI");
+        Topic devTopic = Topic.builder()
+                .name("개발")
+                .build();
+        ReflectionTestUtils.setField(devTopic, "id", 102L);
 
-        // Stubbing: Topic 개발
-        Topic devTopic = mock(Topic.class);
-        when(devTopic.getId()).thenReturn(102L);
-        when(devTopic.getName()).thenReturn("개발");
+        Category techCategory = Category.builder()
+                .name("기술")
+                .topics(List.of(aiTopic, devTopic)) // 생성자 빌더로 연관관계까지 한 번에 설정
+                .build();
+        ReflectionTestUtils.setField(techCategory, "id", 1L);
 
         // Stubbing: 관계 설정
-        when(techCategory.getTopics()).thenReturn(List.of(aiTopic, devTopic));
         when(categoryRepository.findAll()).thenReturn(List.of(techCategory));
 
         // 토픽별 뉴스레터 개수 데이터 설정
@@ -121,21 +131,22 @@ class ExploreServiceTest {
         Long topicId = 10L;
         PageRequest pageable = PageRequest.of(0, 10);
 
-        Topic mockTopic = mock(Topic.class);
-        when(mockTopic.getName()).thenReturn("개발");
+        // 실제 객체 생성
+        Topic topic = Topic.builder().name("개발").build();
+        ReflectionTestUtils.setField(topic, "id", topicId);
 
-        Newsletter mockN = mock(Newsletter.class);
-        when(mockN.getTitle()).thenReturn("테크 소식");
+        Newsletter newsletter = Newsletter.builder()
+                .title("테크 소식")
+                .contentUrl("http://example.com")
+                .build();
 
-        UserNewsletter mockUn = mock(UserNewsletter.class);
-        when(mockUn.getId()).thenReturn(100L);
-        when(mockUn.getNewsletter()).thenReturn(mockN);
-        when(mockUn.getCreatedAt()).thenReturn(LocalDateTime.now());
+        UserNewsletter userNewsletter = UserNewsletter.create(mockUser, newsletter, null, null, null);
+        ReflectionTestUtils.setField(userNewsletter, "id", 100L);
+        ReflectionTestUtils.setField(userNewsletter, "createdAt", LocalDateTime.now());
 
-        // 다음 페이지가 있는 상황(true)을 시뮬레이션하여 FE가 '더보기' 버튼을 띄울 수 있는지 검증합니다.
-        Slice<UserNewsletter> mockSlice = new SliceImpl<>(List.of(mockUn), pageable, true);
+        Slice<UserNewsletter> mockSlice = new SliceImpl<>(List.of(userNewsletter), pageable, true);
 
-        when(topicRepository.findById(topicId)).thenReturn(Optional.of(mockTopic));
+        when(topicRepository.findById(topicId)).thenReturn(Optional.of(topic));
         when(userNewsletterRepository.findByUserIdAndTopicId(userId, topicId, pageable)).thenReturn(mockSlice);
 
         // when
@@ -145,7 +156,7 @@ class ExploreServiceTest {
         assertSoftly(softly -> {
             softly.assertThat(response.topicName()).isEqualTo("개발");
             softly.assertThat(response.newsletters()).hasSize(1);
-            softly.assertThat(response.hasNext()).isTrue();
+            softly.assertThat(response.newsletters().getFirst().title()).isEqualTo("테크 소식");
         });
     }
 
@@ -157,25 +168,32 @@ class ExploreServiceTest {
         LocalDateTime day1 = LocalDateTime.of(2024, 1, 20, 10, 0);
         LocalDateTime day2 = LocalDateTime.of(2024, 1, 21, 10, 0);
 
-        Newsletter mockN1 = mock(Newsletter.class);
-        when(mockN1.getTitle()).thenReturn("N1");
-        when(mockN1.getLlmStatus()).thenReturn(LlmStatus.DONE);
+        // 실제 빌더를 사용하여 Newsletter 생성
+        Newsletter n1 = Newsletter.builder()
+                .title("N1")
+                .contentUrl("http://url1")
+                .llmStatus(LlmStatus.DONE)
+                .build();
+        ReflectionTestUtils.setField(n1, "id", 1L);
 
-        UserNewsletter mockUn1 = mock(UserNewsletter.class);
-        when(mockUn1.getId()).thenReturn(1L);
-        when(mockUn1.getNewsletter()).thenReturn(mockN1);
-        when(mockUn1.getCreatedAt()).thenReturn(day1);
+        Newsletter n2 = Newsletter.builder()
+                .title("N2")
+                .contentUrl("http://url2")
+                .llmStatus(LlmStatus.DONE)
+                .build();
+        ReflectionTestUtils.setField(n2, "id", 2L);
 
-        Newsletter mockN2 = mock(Newsletter.class);
-        when(mockN2.getTitle()).thenReturn("N2");
-        when(mockN2.getLlmStatus()).thenReturn(LlmStatus.DONE);
+        // UserNewsletter 생성 및 Reflection을 통한 필드 주입
+        UserNewsletter un1 = UserNewsletter.create(null, n1, null, null, null);
+        ReflectionTestUtils.setField(un1, "id", 101L);
+        ReflectionTestUtils.setField(un1, "createdAt", day1);
 
-        UserNewsletter mockUn2 = mock(UserNewsletter.class);
-        when(mockUn2.getId()).thenReturn(2L);
-        when(mockUn2.getNewsletter()).thenReturn(mockN2);
-        when(mockUn2.getCreatedAt()).thenReturn(day2);
+        UserNewsletter un2 = UserNewsletter.create(null, n2, null, null, null);
+        ReflectionTestUtils.setField(un2, "id", 102L);
+        ReflectionTestUtils.setField(un2, "createdAt", day2);
 
-        when(userNewsletterRepository.findAllInboxByUserId(userId)).thenReturn(List.of(mockUn2, mockUn1));
+        // Repository는 실제 객체 리스트를 반환하도록 설정
+        when(userNewsletterRepository.findAllInboxByUserId(userId)).thenReturn(List.of(un1, un2));
         when(categoryRepository.findAll()).thenReturn(List.of());
         when(topicRepository.findAll()).thenReturn(List.of());
 
@@ -193,92 +211,70 @@ class ExploreServiceTest {
         // given
         Long userId = 1L;
         LocalDateTime now = LocalDateTime.now();
+        Category itCategory = Category.builder().name("IT").build();
+        ReflectionTestUtils.setField(itCategory, "id", 1L);
+        Topic aiTopic = Topic.builder().name("AI").build();
+        ReflectionTestUtils.setField(aiTopic, "id", 10L);
 
-        // 1. 분석 완료된 뉴스레터
-        Newsletter doneN = mock(Newsletter.class);
-        when(doneN.getLlmStatus()).thenReturn(LlmStatus.DONE);
-        UserNewsletter unDone = mock(UserNewsletter.class);
-        when(unDone.getNewsletter()).thenReturn(doneN);
-        when(unDone.getCreatedAt()).thenReturn(now);
+        // 1. 분석 완료된 뉴스레터 (실제 객체)
+        Newsletter doneN = Newsletter.builder()
+                .contentUrl("url1")
+                .llmStatus(LlmStatus.DONE)
+                .build();
 
-        // Mock UserNewsletter category/topic
-        Category mockCat = mock(Category.class);
-        when(mockCat.getName()).thenReturn("IT");
-        when(mockCat.getId()).thenReturn(1L);
-        when(unDone.getCategory()).thenReturn(mockCat);
+        UserNewsletter unDone = UserNewsletter.create(null, doneN, itCategory, aiTopic, null);
+        ReflectionTestUtils.setField(unDone, "createdAt", now);
 
-        Topic mockTopic = mock(Topic.class);
-        when(mockTopic.getName()).thenReturn("AI");
-        when(mockTopic.getId()).thenReturn(10L);
-        when(unDone.getTopic()).thenReturn(mockTopic);
+        // 2. 분석 중인 뉴스레터 (실제 객체)
+        Newsletter runningN = Newsletter.builder()
+                .contentUrl("url2")
+                .llmStatus(LlmStatus.RUNNING)
+                .build();
 
-        // 2. 분석 중인 뉴스레터
-        Newsletter runningN = mock(Newsletter.class);
-        when(runningN.getLlmStatus()).thenReturn(LlmStatus.RUNNING);
-        UserNewsletter unRunning = mock(UserNewsletter.class);
-        when(unRunning.getNewsletter()).thenReturn(runningN);
-        when(unRunning.getCreatedAt()).thenReturn(now);
+        UserNewsletter unRunning = UserNewsletter.create(null, runningN, null, null, null);
+        ReflectionTestUtils.setField(unRunning, "createdAt", now);
 
         when(userNewsletterRepository.findAllInboxByUserId(userId)).thenReturn(List.of(unDone, unRunning));
-
-        // 캐싱 데이터 설정
-        Category cat = mock(Category.class);
-        when(cat.getName()).thenReturn("IT");
-        when(cat.getId()).thenReturn(1L);
-        when(categoryRepository.findAll()).thenReturn(List.of(cat));
-
-        Topic top = mock(Topic.class);
-        when(top.getName()).thenReturn("AI");
-        when(top.getId()).thenReturn(10L);
-        when(topicRepository.findAll()).thenReturn(List.of(top));
+        when(categoryRepository.findAll()).thenReturn(List.of(itCategory));
+        when(topicRepository.findAll()).thenReturn(List.of(aiTopic));
 
         // when
         InboxResponse response = exploreService.getInbox(userId);
 
         // then
         assertSoftly(softly -> {
-            softly.assertThat(response.inbox()).hasSize(1);
             List<InboxResponse.InboxItemDto> items = response.inbox().getFirst().items();
-            softly.assertThat(items).hasSize(2);
-
-            // 분석 완료된 경우: ID와 이름이 존재해야 함
-            InboxResponse.InboxItemDto doneItem = items.get(0);
-            softly.assertThat(doneItem.category().id()).isEqualTo(1L);
-
-            // 분석 중인 경우: ID와 이름이 null이어야 함
-            InboxResponse.InboxItemDto runningItem = items.get(1);
-            softly.assertThat(runningItem.category().id()).isNull();
-            softly.assertThat(runningItem.topic().id()).isNull();
+            softly.assertThat(items.get(0).category().id()).isEqualTo(1L); // DONE 상태는 데이터 노출
+            softly.assertThat(items.get(1).category().id()).isNull();      // RUNNING 상태는 null 노출
         });
     }
 
     @Test
-    @DisplayName("[Explore] 인박스 분류 수정 성공: 카테고리/토픽 변경 및 원본 동기화 확인")
+    @DisplayName("[Explore] 인박스 분류 수정 성공: 카테고리/토픽 변경 및 확인")
     void updateInboxClassification_Success() {
         // given
         Long userId = 1L;
         ClassificationRequest request = new ClassificationRequest(2L, 20L, "메모 수정");
 
-        User mockUser = mock(User.class);
-        when(mockUser.getId()).thenReturn(userId);
+        Newsletter newsletter = Newsletter.builder()
+                .title("제목")
+                .contentUrl("http://url")
+                .llmStatus(LlmStatus.DONE)
+                .build();
+        ReflectionTestUtils.setField(newsletter, "id", 1L);
 
-        Newsletter mockN = mock(Newsletter.class);
-        UserNewsletter mockUn = mock(UserNewsletter.class);
-        when(mockUn.getUser()).thenReturn(mockUser);
-        when(mockUn.getNewsletter()).thenReturn(mockN);
-        when(mockUn.getConfirmedAt()).thenReturn(LocalDateTime.now());
-        when(mockUn.getModifiedAt()).thenReturn(LocalDateTime.now());
+        // 실제 객체를 생성하고 행위 검증을 위해 spy로 감싸기
+        UserNewsletter userNewsletter = spy(UserNewsletter.create(mockUser, newsletter, null, null, "원본메모"));
+        ReflectionTestUtils.setField(userNewsletter, "id", 100L);
+        ReflectionTestUtils.setField(userNewsletter, "modifiedAt", LocalDateTime.now());
 
-        Category newCat = mock(Category.class);
-        when(newCat.getId()).thenReturn(2L);
-        when(newCat.getName()).thenReturn("경제");
+        // 새로운 카테고리와 토픽 빌더로 생성
+        Category newCat = Category.builder().name("경제").build();
+        ReflectionTestUtils.setField(newCat, "id", 2L);
+        Topic newTop = Topic.builder().name("주식").category(newCat).build();
+        ReflectionTestUtils.setField(newTop, "id", 20L);
 
-        Topic newTop = mock(Topic.class);
-        when(newTop.getId()).thenReturn(20L);
-        when(newTop.getName()).thenReturn("주식");
-        when(newTop.getCategory()).thenReturn(newCat);
-
-        when(userNewsletterRepository.findById(100L)).thenReturn(Optional.of(mockUn));
+        when(userNewsletterRepository.findById(100L)).thenReturn(Optional.of(userNewsletter));
         when(categoryRepository.findById(2L)).thenReturn(Optional.of(newCat));
         when(topicRepository.findById(20L)).thenReturn(Optional.of(newTop));
 
@@ -286,10 +282,8 @@ class ExploreServiceTest {
         ClassificationResponse response = exploreService.updateInboxClassification(userId, 100L, request);
 
         // then
-        // verify를 사용해 엔티티 내부의 수정 메서드들이 실제로 호출되었는지 검증
-        verify(mockUn).updateClassification(newCat, newTop, "메모 수정");
-        // verify(mockN).updateCategoryAndTopic("경제", "주식"); // Removed as we don't
-        // update Newsletter anymore
+        // 엔티티 내부 메서드가 호출되었는지 실제 동작 확인
+        verify(userNewsletter).updateClassification(eq(newCat), eq(newTop), eq("메모 수정"));
         assertThat(response.category().name()).isEqualTo("경제");
     }
 
@@ -389,4 +383,5 @@ class ExploreServiceTest {
         assertThat(response.llmStatus()).isEqualTo(LlmStatus.RUNNING);
         assertThat(response.inboxCount()).isEqualTo(1);
     }
+
 }

@@ -50,8 +50,9 @@ public class Collection extends BaseEntity {
     private List<CollectionNewsletter> collectionNewsletters = new ArrayList<>();
 
     @Builder
-    public Collection(User user, Topic topic, String title, String smallCardSummary, String mediumCardSummary,
-            PerspectiveType perspectiveType, DepthType depthType) {
+    public Collection(Long id, User user, Topic topic, String title, String smallCardSummary, String mediumCardSummary,
+                      PerspectiveType perspectiveType, DepthType depthType) {
+        this.id = id;
         this.user = user;
         this.topic = topic;
         this.title = title;
