@@ -63,13 +63,13 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
-        ReflectionTestUtils.setField(userNewsletter, "isRead", false);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true); // 서비스 호출 결과가 읽음 상태라고 가정
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when
-        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId, true);
+        // when - 팀원이 변경한 시그니처 반영 (boolean 파라미터 제거)
+        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId);
 
         // then
         assertThat(response.newsletterSimpleSummary()).hasSize(1);
@@ -97,12 +97,13 @@ class NewsletterServiceTest {
                 .perspectiveType(PerspectiveType.NOW)
                 .build();
         ReflectionTestUtils.setField(userNewsletter, "id", userNewsletterId);
+        ReflectionTestUtils.setField(userNewsletter, "isRead", true);
 
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when
-        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId, true);
+        // when - 시그니처 반영
+        SimpleViewNewsletterResponse response = newsletterService.simpleViewUserNewsletter(userId, userNewsletterId);
 
         // then
         assertThat(response.newsletterSimpleSummary()).isEmpty();
@@ -139,8 +140,8 @@ class NewsletterServiceTest {
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when
-        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+        // when - 시그니처 반영 (boolean 파라미터 제거)
+        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
         // then
         assertThat(response.categoryName()).isEqualTo("PersonalizedCategory");
@@ -175,8 +176,8 @@ class NewsletterServiceTest {
         given(userNewsletterRepository.findByIdAndUser_Id(userNewsletterId, userId))
                 .willReturn(Optional.of(userNewsletter));
 
-        // when
-        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId, false);
+        // when - 시그니처 반영
+        ViewNewsletterResponse response = newsletterService.viewUserNewsletter(userId, userNewsletterId);
 
         // then
         assertThat(response.categoryName()).isEqualTo("OriginalCategory");
